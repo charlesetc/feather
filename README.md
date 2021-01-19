@@ -3,7 +3,7 @@
 A minimal shell library for OCaml with lightweight, posix-like syntax.
 
 For documentation and available commands, see
-[feather.mli](./browse/feather.mli).
+[feather.mli](./feather.mli).
 
 ## Basic Introduction
 
