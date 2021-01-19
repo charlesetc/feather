@@ -176,16 +176,16 @@ Feather is hosted on opam
 
 or you can build it from source
 
-    hg clone https://hg.sr.ht/~etc/feather
+    git clone https://github.com/charlesetc/feather
     cd feather
     dune build
 
 ### Does feather work with Async or Lwt?
 
-There is a [feather\_async](https://hg.sr.ht/~etc/feather_async) library
-that lets you use Feather in Async code! There is not an Lwt equivalent
-yet, but the Async wrapper is very small so I would guess the Lwt one
-would be too.
+There is a [feather\_async](https://github.com/charlesetc/feather_async)
+library that lets you use Feather in Async code! There is not an Lwt
+equivalent yet, but the Async wrapper is very small so I would guess the
+Lwt one would be too.
 
 ### How does this compare to other shell-scripting libraries, namely Shexp?
 
