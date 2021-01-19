@@ -225,10 +225,6 @@ let length = Feather.process "ls" []
 Overall Feather makes a trade-off of being less featureful while hoping
 to improve ergonomics.
 
-## How can I report a bug?
-
-[Here](https://todo.sr.ht/~etc/feather) is the bug tracker :)
-
 ## Features coming soon
 
 -   forwarding kill signals from the parent process to its children
