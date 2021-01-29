@@ -95,7 +95,7 @@ That's pretty much Feather! Below are some examples in full.
 
 ## Examples
 
-Say you wanted to make a quick sentance generator:
+Say you wanted to make a quick sentence generator:
 
 ``` ocaml
 for i = 0 to 3 do
