@@ -411,10 +411,10 @@ hi
 
     let%expect_test "redirection" =
       find "." ~ignore_hidden:true ~kind:`Files ~name:"*.ml"
-      |. rg_v {|\.pp\.|} |> print;
+      |. rg_v {|\.pp\.|} |. sort |> print;
       [%expect {|
-        ./feather.ml
-        ./example.ml |}]
+        ./example.ml
+        ./feather.ml |}]
 
     let%expect_test "redirection" =
       (* TODO: tests for redirection *)
