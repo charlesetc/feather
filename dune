@@ -9,5 +9,5 @@
  (public_name feather)
  (inline_tests)
  (modules feather)
- (libraries core stdio threads spawn)
+ (libraries base stdio threads spawn)
  (preprocess (pps ppx_expect)))

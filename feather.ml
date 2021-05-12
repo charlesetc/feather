@@ -1,20 +1,20 @@
-open Core
+open Base
 open Stdio
 module Sys = Caml.Sys
 
 module Unix = struct
   include Unix
 
-  let dup = dup ~close_on_exec:true
+  let dup = dup ~cloexec:true
 
-  let pipe = pipe ~close_on_exec:true
+  let pipe = pipe ~cloexec:true
 end
 
 module Thread = struct
   include Thread
 
   let run f =
-    let (_ : t) = create ~on_uncaught_exn:`Kill_whole_process f () in
+    let (_ : t) = create f () in
     ()
 end
 
@@ -32,9 +32,9 @@ type env = (string * string) list
 
 (* TODO: Refactor to use a record *)
 type cmd =
-  stdin_reader:Unix.File_descr.t ->
-  stdout_writer:Unix.File_descr.t ->
-  stderr_writer:Unix.File_descr.t ->
+  stdin_reader:Unix.file_descr ->
+  stdout_writer:Unix.file_descr ->
+  stderr_writer:Unix.file_descr ->
   background:bool ->
   cwd:string option ->
   env:env option ->
@@ -61,29 +61,29 @@ let process prog args ~stdin_reader ~stdout_writer ~stderr_writer ~background
     match cwd with
     | None -> Inherit
     | Some cwd ->
-        prerr_endline cwd;
-        Path cwd
+      prerr_endline cwd;
+      Path cwd
   in
   let env : Spawn.Env.t option =
     Option.map env ~f:(fun env ->
-        List.map env ~f:(fun (key, value) -> sprintf "%s=%s" key value)
+        List.map env ~f:(fun (key, value) -> Printf.sprintf "%s=%s" key value)
         |> Spawn.Env.of_list)
   in
-  if !debug then
-    eprintf "%s - %s %s\n"
-      (Time.to_string (Time.now ()))
-      prog
-      (List.to_string ~f:Fn.id args);
+  if !debug then begin
+    let tm = Unix.localtime (Unix.time ()) in
+    eprintf "%d-%d-%d %d:%d:%d - %s %s\n"
+      tm.tm_year tm.tm_mon tm.tm_mday tm.tm_hour tm.tm_min tm.tm_sec prog
+      ("(" ^ (String.concat ~sep:" " args) ^ ")")
+  end;
   let pid =
     Spawn.spawn ~cwd ?env ~stdin:stdin_reader ~stdout:stdout_writer
       ~stderr:stderr_writer ~prog ~argv ()
-    |> Pid.of_int
   in
   let finish () =
-    ( match Unix.waitpid pid with
-    | Ok () -> State.exit := 0
-    | Error (`Exit_non_zero s) -> State.exit := s
-    | Error (`Signal _) -> () );
+    ( match snd (Unix.waitpid [] pid) with
+    | WEXITED s -> State.exit := s
+    | WSIGNALED _ -> ()
+    | WSTOPPED _ -> ());
     Unix.close stdout_writer
   in
   if background then Thread.run finish else finish ()
@@ -122,7 +122,7 @@ let fd_iter_lines ~f fd =
   try
     while true do
       match
-        let read = Unix.read fd ~buf ~pos:0 ~len:1 in
+        let read = Unix.read fd buf 0 1 in
         if read = 0 then raise End_of_file;
         assert (read = 1);
         Bytes.get buf 0
@@ -143,10 +143,10 @@ let filter_map ~f ~stdin_reader ~stdout_writer ~stderr_writer:_ ~background
         | Some out ->
             let buf = Bytes.of_string out in
             let (_ : int) =
-              Unix.write stdout_writer ~buf ~pos:0 ~len:(Bytes.length buf)
+              Unix.write stdout_writer buf 0 (Bytes.length buf)
             in
             let (_ : int) =
-              Unix.write stdout_writer ~buf:(Bytes.of_string "\n") ~pos:0 ~len:1
+              Unix.write stdout_writer (Bytes.of_string "\n") 0 1
             in
             ()
         | None -> ());
@@ -279,7 +279,7 @@ let write_stdout_to str cmd ~stdin_reader ~stdout_writer ~stderr_writer
     ~background ~cwd ~env =
   Unix.close stdout_writer;
   let stdout_writer =
-    Unix.openfile str ~mode:[ O_WRONLY; O_TRUNC; O_CREAT ] ~perm:0o644
+    Unix.openfile str [ O_WRONLY; O_TRUNC; O_CREAT ] 0o644
   in
   cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
 
@@ -287,27 +287,27 @@ let append_stdout_to str cmd ~stdin_reader ~stdout_writer ~stderr_writer
     ~background ~cwd ~env =
   Unix.close stdout_writer;
   let stdout_writer =
-    Unix.openfile str ~mode:[ O_WRONLY; O_APPEND; O_CREAT ] ~perm:0o644
+    Unix.openfile str [ O_WRONLY; O_APPEND; O_CREAT ] 0o644
   in
   cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
 
 let write_stderr_to str cmd ~stdin_reader ~stdout_writer ~stderr_writer:_
     ~background ~cwd ~env =
   let stderr_writer =
-    Unix.openfile str ~mode:[ O_WRONLY; O_TRUNC; O_CREAT ] ~perm:0o644
+    Unix.openfile str [ O_WRONLY; O_TRUNC; O_CREAT ] 0o644
   in
   cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
 
 let append_stderr_to str cmd ~stdin_reader ~stdout_writer ~stderr_writer:_
     ~background ~cwd ~env =
   let stderr_writer =
-    Unix.openfile str ~mode:[ O_WRONLY; O_APPEND; O_CREAT ] ~perm:0o644
+    Unix.openfile str [ O_WRONLY; O_APPEND; O_CREAT ] 0o644
   in
   cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
 
 let read_stdin_from str cmd ~stdin_reader:_ ~stdout_writer ~stderr_writer
     ~background ~cwd ~env =
-  let stdin_reader = Unix.openfile str ~mode:[ O_RDONLY ] ~perm:0 in
+  let stdin_reader = Unix.openfile str [ O_RDONLY ] 0 in
   cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
 
 module File_redirection_infix = struct
@@ -348,10 +348,10 @@ let fzf ?cwd ?env cmd =
 
 (* === Signals === *)
 let terminate_child_processes () =
-  process "pgrep" [ "-P"; Pid.to_string State.pid ]
-  |> collect_lines |> List.map ~f:Pid.of_string
+  process "pgrep" [ "-P"; Int.to_string State.pid ]
+  |> collect_lines |> List.map ~f:(Int.of_string)
   |> List.iter ~f:(fun pid ->
-         ignore (Signal.send Signal.term (`Pid pid) : [ `Ok | `No_such_process ]))
+         ignore (Unix.kill Sys.sigterm pid))
 
 let () = Caml.at_exit terminate_child_processes
 
@@ -413,8 +413,8 @@ hi
       find "." ~ignore_hidden:true ~kind:`Files ~name:"*.ml"
       |. rg_v {|\.pp\.|} |> print;
       [%expect {|
-        ./example.ml
-        ./feather.ml |}]
+        ./feather.ml
+        ./example.ml |}]
 
     let%expect_test "redirection" =
       (* TODO: tests for redirection *)
