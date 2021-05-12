@@ -81,7 +81,7 @@ let process prog args ~stdin_reader ~stdout_writer ~stderr_writer ~background
   in
   let finish () =
     ( match Unix.waitpid pid with
-    | Ok () -> ()
+    | Ok () -> State.exit := 0
     | Error (`Exit_non_zero s) -> State.exit := s
     | Error (`Signal _) -> () );
     Unix.close stdout_writer
