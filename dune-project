@@ -11,4 +11,4 @@
 (package
   (name "feather")
   (synopsis "A very minimal shell interface")
-  (depends dune core spawn))
+  (depends dune base spawn))

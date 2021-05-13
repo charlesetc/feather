@@ -9,7 +9,7 @@ homepage: "https://hg.sr.ht/~etc/feather"
 bug-reports: "https://todo.sr.ht/~etc/feather"
 depends: [
   "dune" {>= "2.6"}
-  "core"
+  "base"
   "spawn"
 ]
 build: [
