@@ -83,17 +83,18 @@ let process prog args ~stdin_reader ~stdout_writer ~stderr_writer ~background
     | WEXITED s -> State.exit := s
     | WSIGNALED _ -> ()
     | WSTOPPED _ -> ());
-    Unix.close stdout_writer
+    Unix.close stdout_writer;
+    Unix.close stderr_writer
   in
   if background then Thread.run finish else finish ()
 
 let ( |. ) a b =
   let pipe_reader, pipe_writer = Spawn.safe_pipe () in
   fun ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env ->
-    a ~stdin_reader ~stdout_writer:pipe_writer ~stderr_writer ~background:true
-      ~cwd ~env;
-    b ~stdin_reader:pipe_reader ~stdout_writer ~stderr_writer ~background ~cwd
-      ~env
+    a ~stdin_reader ~stdout_writer:pipe_writer
+      ~stderr_writer:(Unix.dup stderr_writer) ~background:true ~cwd ~env;
+    b ~stdin_reader:pipe_reader ~stdout_writer
+      ~stderr_writer ~background ~cwd ~env
 
 let collect_gen ?cwd ?env cmd =
   let stdout_reader, stdout_writer = Unix.pipe () in
@@ -317,11 +318,9 @@ let stdout_to_stderr cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background
   let stdout_writer = Unix.dup stderr_writer in
   cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
 
-let stderr_to_stdout cmd ~stdin_reader ~stdout_writer ~stderr_writer:_
-    ~background ~cwd ~env =
-  (* Might cause a file descriptor leak, since we don't close stderr_writers.
-
-     Not sure why, but trying to close the normal stderr_writer often results in chaos. *)
+let stderr_to_stdout cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background
+    ~cwd ~env =
+  Unix.close stderr_writer;
   let stderr_writer = Unix.dup stdout_writer in
   cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
 
