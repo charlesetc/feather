@@ -97,6 +97,32 @@ let ( |. ) a b =
     b ~stdin_reader:pipe_reader ~stdout_writer ~stderr_writer ~background ~cwd
       ~env
 
+let ( &&. ) a b =
+  fun ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env ->
+  a ~stdin_reader ~stdout_writer:(Unix.dup stdout_writer)
+    ~stderr_writer:(Unix.dup stderr_writer) ~background ~cwd ~env;
+  match !State.exit with
+  | 0 -> b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
+  | _ ->
+    Unix.close stdout_writer;
+    Unix.close stderr_writer
+
+let ( ||. ) a b =
+  fun ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env ->
+  a ~stdin_reader ~stdout_writer:(Unix.dup stdout_writer)
+    ~stderr_writer:(Unix.dup stderr_writer) ~background ~cwd ~env;
+  match !State.exit with
+  | 0 ->
+    Unix.close stdout_writer;
+    Unix.close stderr_writer
+  | _ -> b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
+
+let ( ->. ) a b =
+  fun ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env ->
+  a ~stdin_reader ~stdout_writer:(Unix.dup stdout_writer)
+    ~stderr_writer:(Unix.dup stderr_writer) ~background ~cwd ~env;
+  b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
+
 let collect_gen ?cwd ?env cmd =
   let stdout_reader, stdout_writer = Unix.pipe () in
   cmd ~stdin_reader:(Unix.dup Unix.stdin) ~stdout_writer
