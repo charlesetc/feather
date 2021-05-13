@@ -424,6 +424,19 @@ hi
         a--0
         b--1 |}]
 
+    let%expect_test _ =
+      echo "test" |. (process "false" [] &&. cat "-") |> print;
+      [%expect ""]
+    let%expect_test _ =
+      echo "test" |. (process "true" [] &&. cat "-") |> print;
+      [%expect "test"]
+    let%expect_test _ =
+      echo "test" |. (process "false" [] ||. cat "-") |> print;
+      [%expect "test"]
+    let%expect_test _ =
+      echo "test" |. (process "true" [] ||. cat "-") |> print;
+      [%expect ""]
+
     let%expect_test "redirection" =
       find "." ~ignore_hidden:true ~kind:`Files ~name:"*.ml"
       |. rg_v {|\.pp\.|} |. sort |> print;
