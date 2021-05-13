@@ -82,6 +82,15 @@ val cut' : ?complement:unit -> ?d:char -> int list -> cmd
 val ( |. ) : cmd -> cmd -> cmd
 (** [ |. ] is feather's version of a "|" in bash. *)
 
+val ( &&. ) : cmd -> cmd -> cmd
+(** [ &&. ] is feather's version of a "&&" in bash. *)
+
+val ( ||. ) : cmd -> cmd -> cmd
+(** [ ||. ] is feather's version of a "||" in bash. *)
+
+val ( ->. ) : cmd -> cmd -> cmd
+(** [ ->. ] is feather's version of a ";" in bash. *)
+
 val collect_lines :
   ?cwd:string -> ?env:(string * string) list -> cmd -> string list
 
