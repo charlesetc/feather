@@ -1,7 +1,7 @@
 open! Base
 open! Stdio
 open Feather
-open Feather.File_redirection_infix
+open Feather.Infix
 
 let __ () =
   cat "dune" |. rg "feather" |> stdout_to_stderr |. echo "hi" |. sort
