@@ -135,10 +135,10 @@ module Infix : sig
   val ( < ) : cmd -> string -> cmd
 
   (** Same as [and_] *)
-  val (&&) : cmd -> cmd -> cmd
+  val (&&.) : cmd -> cmd -> cmd
 
   (** Same as [or_] *)
-  val (||) : cmd -> cmd -> cmd
+  val (||.) : cmd -> cmd -> cmd
 
   (** Same as [sequence] *)
   val (->.) : cmd -> cmd -> cmd
