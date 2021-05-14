@@ -43,20 +43,21 @@ type cmd =
 let resolve_in_path prog =
   (* Do not try to resolve in the path if the program is something like
    * ./this.exe *)
-  if String.split ~on:'/' prog |> List.length <> 1 then prog
+  if String.split ~on:'/' prog |> List.length <> 1 then Some prog
   else
     let paths = Sys.getenv "PATH" |> String.split ~on:':' in
-    match
-      List.map paths ~f:(fun d -> Caml.Filename.concat d prog)
-      |> List.find ~f:Caml.Sys.file_exists
-    with
-    | None -> failwith (Printf.sprintf "no program in path %s" prog)
-    | Some prog -> prog
+    List.map paths ~f:(fun d -> Caml.Filename.concat d prog)
+    |> List.find ~f:Caml.Sys.file_exists
+
+let resolve_in_path_exn prog =
+  match resolve_in_path prog with
+  | None -> failwith (Printf.sprintf "no program in path %s" prog)
+  | Some prog -> prog
 
 let process prog args ~stdin_reader ~stdout_writer ~stderr_writer ~background
     ~cwd ~env =
   let argv = prog :: args in
-  let prog = resolve_in_path prog in
+  let prog = resolve_in_path_exn prog in
   let cwd : Spawn.Working_dir.t =
     match cwd with
     | None -> Inherit
@@ -93,8 +94,8 @@ let ( |. ) a b =
   fun ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env ->
     a ~stdin_reader ~stdout_writer:pipe_writer
       ~stderr_writer:(Unix.dup stderr_writer) ~background:true ~cwd ~env;
-    b ~stdin_reader:pipe_reader ~stdout_writer
-      ~stderr_writer ~background ~cwd ~env
+    b ~stdin_reader:pipe_reader ~stdout_writer ~stderr_writer ~background ~cwd
+      ~env
 
 let collect_gen ?cwd ?env cmd =
   let stdout_reader, stdout_writer = Unix.pipe () in
@@ -230,7 +231,8 @@ let tail_f file = process "tail" [ "-f"; file ]
 let echo s = process "echo" [ s ]
 
 let cut' ?complement ?(d = ' ') fs =
-  process "cut"
+  process
+    (match resolve_in_path "gcut" with Some _ -> "gcut" | None -> "cut")
     ([
        "-f";
        List.map fs ~f:Int.to_string |> String.concat ~sep:",";
