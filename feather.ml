@@ -337,9 +337,9 @@ module Infix = struct
 
   let ( < ) cmd str = read_stdin_from str cmd
 
-  let ( && ) = and_
+  let ( &&. ) = and_
 
-  let ( || ) = or_
+  let ( ||. ) = or_
 
   let ( ->. ) = sequence
 end
@@ -431,20 +431,36 @@ hi
         b--1 |}]
 
     let%expect_test _ =
-      echo "test" |. (process "false" [] && cat "-") |> print;
+      process "false" [] &&. echo "test" |> print;
       [%expect ""]
 
     let%expect_test _ =
-      echo "test" |. (process "true" [] && cat "-") |> print;
+      process "true" [] &&. echo "test" |> print;
       [%expect "test"]
 
     let%expect_test _ =
-      echo "test" |. (process "false" [] || cat "-") |> print;
+      process "false" [] ||. echo "test" |> print;
       [%expect "test"]
 
     let%expect_test _ =
-      echo "test" |. (process "true" [] || cat "-") |> print;
+      process "true" [] ||. echo "test" |> print;
       [%expect ""]
+
+    let%expect_test _ =
+      process "false" [] ||. process "true" [] &&. echo "test" |> print;
+      [%expect "test"]
+
+    let%expect_test _ =
+      process "true" [] &&. process "false" [] ||. echo "test" |> print;
+      [%expect "test"]
+
+    let%expect_test _ =
+      process "false" [] ||. process "false" [] &&. echo "test" |> print;
+      [%expect ""]
+
+    let%expect_test _ =
+      process "true" [] &&. process "false" [] ||. echo "test" |> print;
+      [%expect "test"]
 
     let%expect_test _ =
       echo "test" |. process "true" [] ->. cat "-" |> print;
