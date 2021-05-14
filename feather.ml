@@ -93,31 +93,31 @@ let ( |. ) a b =
   fun ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env ->
     a ~stdin_reader ~stdout_writer:pipe_writer
       ~stderr_writer:(Unix.dup stderr_writer) ~background:true ~cwd ~env;
-    b ~stdin_reader:pipe_reader ~stdout_writer
-      ~stderr_writer ~background ~cwd ~env
+    b ~stdin_reader:pipe_reader ~stdout_writer ~stderr_writer ~background ~cwd
+      ~env
 
-let ( &&. ) a b =
-  fun ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env ->
+let ( &&. ) a b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd
+    ~env =
   a ~stdin_reader ~stdout_writer:(Unix.dup stdout_writer)
     ~stderr_writer:(Unix.dup stderr_writer) ~background ~cwd ~env;
   match !State.exit with
   | 0 -> b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
   | _ ->
-    Unix.close stdout_writer;
-    Unix.close stderr_writer
+      Unix.close stdout_writer;
+      Unix.close stderr_writer
 
-let ( ||. ) a b =
-  fun ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env ->
+let ( ||. ) a b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd
+    ~env =
   a ~stdin_reader ~stdout_writer:(Unix.dup stdout_writer)
     ~stderr_writer:(Unix.dup stderr_writer) ~background ~cwd ~env;
   match !State.exit with
   | 0 ->
-    Unix.close stdout_writer;
-    Unix.close stderr_writer
+      Unix.close stdout_writer;
+      Unix.close stderr_writer
   | _ -> b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
 
-let ( ->. ) a b =
-  fun ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env ->
+let ( ->. ) a b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd
+    ~env =
   a ~stdin_reader ~stdout_writer:(Unix.dup stdout_writer)
     ~stderr_writer:(Unix.dup stderr_writer) ~background ~cwd ~env;
   b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
@@ -425,12 +425,15 @@ hi
     let%expect_test _ =
       echo "test" |. (process "false" [] &&. cat "-") |> print;
       [%expect ""]
+
     let%expect_test _ =
       echo "test" |. (process "true" [] &&. cat "-") |> print;
       [%expect "test"]
+
     let%expect_test _ =
       echo "test" |. (process "false" [] ||. cat "-") |> print;
       [%expect "test"]
+
     let%expect_test _ =
       echo "test" |. (process "true" [] ||. cat "-") |> print;
       [%expect ""]
