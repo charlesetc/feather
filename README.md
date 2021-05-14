@@ -68,7 +68,7 @@ val write_stderr_to : string -> cmd -> cmd
 val append_stderr_to : string -> cmd -> cmd
 ```
 
-or with infix operators in `Feather.File_redirection_infix`
+or with infix operators in `Feather.Infix`
 
 ``` ocaml
 (* Stdout *)
@@ -86,7 +86,7 @@ This does what you would expect:
 
 ``` ocaml
 open Feather
-open Feather.File_redirection_infix
+open Feather.Infix
 
 echo "hi"  > "/tmp/out"
 ```
@@ -199,7 +199,7 @@ style over a monadic one. In Shexp you incrementally construct a
 hand, a `Feather.cmd` is not parametrized: you run it to get a string
 which can be parsed directly by OCaml later. No monads in sight!
 
-As a comparison, say you wanted to count the number of characeters from
+As a comparison, say you wanted to count the number of characters from
 "ls" using Shexp:
 
 ``` ocaml

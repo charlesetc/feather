@@ -82,14 +82,14 @@ val cut' : ?complement:unit -> ?d:char -> int list -> cmd
 val ( |. ) : cmd -> cmd -> cmd
 (** [ |. ] is feather's version of a "|" in bash. *)
 
-val ( &&. ) : cmd -> cmd -> cmd
-(** [ &&. ] is feather's version of a "&&" in bash. *)
+val and_ : cmd -> cmd -> cmd
+(** [ and_ ] is feather's version of a "&&" in bash. See Infix module for more. *)
 
-val ( ||. ) : cmd -> cmd -> cmd
-(** [ ||. ] is feather's version of a "||" in bash. *)
+val  or_ : cmd -> cmd -> cmd
+(** [ or_ ] is feather's version of a "||" in bash. See Infix module for more. *)
 
-val ( ->. ) : cmd -> cmd -> cmd
-(** [ ->. ] is feather's version of a ";" in bash. *)
+val sequence : cmd -> cmd -> cmd
+(** [ sequence ] is feather's version of a ";" in bash. See Infix module for more. *)
 
 val collect_lines :
   ?cwd:string -> ?env:(string * string) list -> cmd -> string list
@@ -117,18 +117,31 @@ val write_stderr_to : string -> cmd -> cmd
 
 val append_stderr_to : string -> cmd -> cmd
 
-module File_redirection_infix : sig
-  (* Stdout *)
+val read_stdin_from : string -> cmd -> cmd
+
+module Infix : sig
+
+  (** Redirect Stdout *)
   val ( > ) : cmd -> string -> cmd
 
   val ( >> ) : cmd -> string -> cmd
 
-  (* Stderr *)
+  (** Redirect Stderr *)
   val ( >! ) : cmd -> string -> cmd
 
   val ( >>! ) : cmd -> string -> cmd
 
+  (** Read file from stdin *)
   val ( < ) : cmd -> string -> cmd
+
+  (** Same as [and_] *)
+  val (&&) : cmd -> cmd -> cmd
+
+  (** Same as [or_] *)
+  val (||) : cmd -> cmd -> cmd
+
+  (** Same as [sequence] *)
+  val (->.) : cmd -> cmd -> cmd
 end
 
 val stdout_to_stderr : cmd -> cmd

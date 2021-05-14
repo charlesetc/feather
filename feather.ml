@@ -97,8 +97,7 @@ let ( |. ) a b =
     b ~stdin_reader:pipe_reader ~stdout_writer ~stderr_writer ~background ~cwd
       ~env
 
-let ( &&. ) a b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd
-    ~env =
+let and_ a b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env =
   a ~stdin_reader ~stdout_writer:(Unix.dup stdout_writer)
     ~stderr_writer:(Unix.dup stderr_writer) ~background ~cwd ~env;
   match !State.exit with
@@ -107,8 +106,7 @@ let ( &&. ) a b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd
       Unix.close stdout_writer;
       Unix.close stderr_writer
 
-let ( ||. ) a b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd
-    ~env =
+let or_ a b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env =
   a ~stdin_reader ~stdout_writer:(Unix.dup stdout_writer)
     ~stderr_writer:(Unix.dup stderr_writer) ~background ~cwd ~env;
   match !State.exit with
@@ -117,7 +115,7 @@ let ( ||. ) a b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd
       Unix.close stderr_writer
   | _ -> b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
 
-let ( ->. ) a b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd
+let sequence a b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd
     ~env =
   a ~stdin_reader ~stdout_writer:(Unix.dup stdout_writer)
     ~stderr_writer:(Unix.dup stderr_writer) ~background ~cwd ~env;
@@ -328,7 +326,7 @@ let read_stdin_from str cmd ~stdin_reader:_ ~stdout_writer ~stderr_writer
   let stdin_reader = Unix.openfile str [ O_RDONLY ] 0 in
   cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
 
-module File_redirection_infix = struct
+module Infix = struct
   let ( > ) cmd str = write_stdout_to str cmd
 
   let ( >> ) cmd str = append_stdout_to str cmd
@@ -338,6 +336,12 @@ module File_redirection_infix = struct
   let ( >>! ) cmd str = append_stderr_to str cmd
 
   let ( < ) cmd str = read_stdin_from str cmd
+
+  let ( && ) = and_
+
+  let ( || ) = or_
+
+  let ( ->. ) = sequence
 end
 
 let stdout_to_stderr cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background
@@ -374,6 +378,8 @@ let () = Caml.at_exit terminate_child_processes
 
 let%test_module _ =
   (module struct
+    open Infix
+
     let print cmd = collect_lines cmd |> List.iter ~f:print_endline
 
     let%expect_test _ =
@@ -425,20 +431,28 @@ hi
         b--1 |}]
 
     let%expect_test _ =
-      echo "test" |. (process "false" [] &&. cat "-") |> print;
+      echo "test" |. (process "false" [] && cat "-") |> print;
       [%expect ""]
 
     let%expect_test _ =
-      echo "test" |. (process "true" [] &&. cat "-") |> print;
+      echo "test" |. (process "true" [] && cat "-") |> print;
       [%expect "test"]
 
     let%expect_test _ =
-      echo "test" |. (process "false" [] ||. cat "-") |> print;
+      echo "test" |. (process "false" [] || cat "-") |> print;
       [%expect "test"]
 
     let%expect_test _ =
-      echo "test" |. (process "true" [] ||. cat "-") |> print;
+      echo "test" |. (process "true" [] || cat "-") |> print;
       [%expect ""]
+
+    let%expect_test _ =
+      echo "test" |. process "true" [] ->. cat "-" |> print;
+      [%expect "test"]
+
+    let%expect_test _ =
+      echo "test" |. process "false" [] ->. cat "-" |> print;
+      [%expect "test"]
 
     let%expect_test "redirection" =
       find "." ~ignore_hidden:true ~kind:`Files ~name:"*.ml"
