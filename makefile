@@ -4,12 +4,17 @@ test:
 promote:
 	dune runtest --auto-promote
 
+utop:
+	dune utop
+
 example:
 	@dune exec ./example.exe
 
-make install:
+install:
 	@dune build @install
 	@dune install
 
 build:
 	@dune build
+
+.PHONY: test promote utop example install build
