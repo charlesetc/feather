@@ -23,16 +23,20 @@ val rg_v : ?in_:string -> string -> cmd
 
 val find :
   ?include_starting_dir:bool ->
-    (** [include_starting_dir]: whether to include the starting directory
-        passed into [find]. Defaults to [false], notably different than the unix
-        find utility.  *)
   ?ignore_hidden:bool ->
   ?kind:[ `Files | `Directories ] ->
   ?name:string ->
   ?depth:int ->
-    (** [depth]: The maximum search depth *)
   string ->
   cmd
+(** [find] lists files and/or directories, optionally filtering by name.
+
+    [?depth]: The maximum search depth, defaults to infinity.
+
+    [?include_starting_dir]: whether to include the starting directory passed
+    into [find]. Defaults to [false], notably different than the unix find
+    utility.
+*)
 
 val tr : string -> string -> cmd
 
@@ -76,7 +80,6 @@ val cut : ?d:char (** defaults to a space *) -> int -> cmd
 
 val cut' : ?complement:unit -> ?d:char -> int list -> cmd
 
-
 (* === Using [cmd]'s in OCaml === *)
 
 val ( |. ) : cmd -> cmd -> cmd
@@ -85,7 +88,7 @@ val ( |. ) : cmd -> cmd -> cmd
 val and_ : cmd -> cmd -> cmd
 (** [ and_ ] is feather's version of a "&&" in bash. See Infix module for more. *)
 
-val  or_ : cmd -> cmd -> cmd
+val or_ : cmd -> cmd -> cmd
 (** [ or_ ] is feather's version of a "||" in bash. See Infix module for more. *)
 
 val sequence : cmd -> cmd -> cmd
@@ -120,28 +123,31 @@ val append_stderr_to : string -> cmd -> cmd
 val read_stdin_from : string -> cmd -> cmd
 
 module Infix : sig
-
-  (** Redirect Stdout *)
   val ( > ) : cmd -> string -> cmd
+  (** Redirect Stdout *)
 
   val ( >> ) : cmd -> string -> cmd
 
-  (** Redirect Stderr *)
   val ( >! ) : cmd -> string -> cmd
+  (** Redirect Stderr *)
 
   val ( >>! ) : cmd -> string -> cmd
 
-  (** Read file from stdin *)
   val ( < ) : cmd -> string -> cmd
+  (** Read file from stdin *)
 
+  val ( &&. ) : cmd -> cmd -> cmd
   (** Same as [and_] *)
-  val (&&.) : cmd -> cmd -> cmd
 
+  val ( ||. ) : cmd -> cmd -> cmd
   (** Same as [or_] *)
-  val (||.) : cmd -> cmd -> cmd
 
-  (** Same as [sequence] *)
-  val (->.) : cmd -> cmd -> cmd
+  val ( ->. ) : cmd -> cmd -> cmd
+  (** Same as [sequence]
+
+      [->.] binds more tightly than [|.] so parentheses should be used when
+      chaining the two.
+  *)
 end
 
 val stdout_to_stderr : cmd -> cmd
