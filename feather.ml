@@ -30,15 +30,29 @@ type env = (string * string) list
 
 (* TODO: implement [wait] *)
 
-(* TODO: Refactor to use a record *)
+type context = {
+  stdin_reader : Unix.file_descr;
+  stdout_writer : Unix.file_descr;
+  stderr_writer : Unix.file_descr;
+  background : bool;
+  cwd : string option;
+  env : env option;
+}
+
 type cmd =
-  stdin_reader:Unix.file_descr ->
-  stdout_writer:Unix.file_descr ->
-  stderr_writer:Unix.file_descr ->
-  background:bool ->
-  cwd:string option ->
-  env:env option ->
-  unit
+  | Process of string * string list
+  | Pipe of cmd * cmd
+  | And of cmd * cmd
+  | Or of cmd * cmd
+  | Seq of cmd * cmd
+  | WOut of string * cmd
+  | AOut of string * cmd
+  | WErr of string * cmd
+  | AErr of string * cmd
+  | RIn of string * cmd
+  | OutToErr of cmd
+  | ErrToOut of cmd
+  | FilterMap of (string -> string option)
 
 let resolve_in_path prog =
   (* Do not try to resolve in the path if the program is something like
@@ -53,89 +67,6 @@ let resolve_in_path_exn prog =
   match resolve_in_path prog with
   | None -> failwith (Printf.sprintf "no program in path %s" prog)
   | Some prog -> prog
-
-let process prog args ~stdin_reader ~stdout_writer ~stderr_writer ~background
-    ~cwd ~env =
-  let argv = prog :: args in
-  let prog = resolve_in_path_exn prog in
-  let cwd : Spawn.Working_dir.t =
-    match cwd with
-    | None -> Inherit
-    | Some cwd ->
-        prerr_endline cwd;
-        Path cwd
-  in
-  let env : Spawn.Env.t option =
-    Option.map env ~f:(fun env ->
-        List.map env ~f:(fun (key, value) -> Printf.sprintf "%s=%s" key value)
-        |> Spawn.Env.of_list)
-  in
-  (if !debug then
-   let tm = Unix.localtime (Unix.time ()) in
-   eprintf "%d-%d-%d %d:%d:%d - %s %s\n" tm.tm_year tm.tm_mon tm.tm_mday
-     tm.tm_hour tm.tm_min tm.tm_sec prog
-     ("(" ^ String.concat ~sep:" " args ^ ")"));
-  let pid =
-    Spawn.spawn ~cwd ?env ~stdin:stdin_reader ~stdout:stdout_writer
-      ~stderr:stderr_writer ~prog ~argv ()
-  in
-  let finish () =
-    (match snd (Unix.waitpid [] pid) with
-    | WEXITED s -> State.exit := s
-    | WSIGNALED _ -> ()
-    | WSTOPPED _ -> ());
-    Unix.close stdout_writer;
-    Unix.close stderr_writer
-  in
-  if background then Thread.run finish else finish ()
-
-let ( |. ) a b =
-  let pipe_reader, pipe_writer = Spawn.safe_pipe () in
-  fun ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env ->
-    a ~stdin_reader ~stdout_writer:pipe_writer
-      ~stderr_writer:(Unix.dup stderr_writer) ~background:true ~cwd ~env;
-    b ~stdin_reader:pipe_reader ~stdout_writer ~stderr_writer ~background ~cwd
-      ~env
-
-let and_ a b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env =
-  a ~stdin_reader ~stdout_writer:(Unix.dup stdout_writer)
-    ~stderr_writer:(Unix.dup stderr_writer) ~background ~cwd ~env;
-  match !State.exit with
-  | 0 -> b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
-  | _ ->
-      Unix.close stdout_writer;
-      Unix.close stderr_writer
-
-let or_ a b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env =
-  a ~stdin_reader ~stdout_writer:(Unix.dup stdout_writer)
-    ~stderr_writer:(Unix.dup stderr_writer) ~background ~cwd ~env;
-  match !State.exit with
-  | 0 ->
-      Unix.close stdout_writer;
-      Unix.close stderr_writer
-  | _ -> b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
-
-let sequence a b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd
-    ~env =
-  a ~stdin_reader ~stdout_writer:(Unix.dup stdout_writer)
-    ~stderr_writer:(Unix.dup stderr_writer) ~background ~cwd ~env;
-  b ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
-
-let collect_gen ?cwd ?env cmd =
-  let stdout_reader, stdout_writer = Unix.pipe () in
-  cmd ~stdin_reader:(Unix.dup Unix.stdin) ~stdout_writer
-    ~stderr_writer:(Unix.dup Unix.stderr) ~background:false ~cwd ~env;
-  Unix.in_channel_of_descr stdout_reader
-
-let collect_stdout ?cwd ?env cmd =
-  let out = In_channel.input_all (collect_gen ?cwd ?env cmd) in
-  (* This might be controversial. The alternative is to export a [trim]
-     command, that makes it easy to do this manually, but I think this
-     is actually less suprising than keeping the newline. *)
-  String.chop_suffix out ~suffix:"\n" |> Option.value ~default:out
-
-let collect_lines ?cwd ?env cmd =
-  In_channel.input_lines (collect_gen ?cwd ?env cmd)
 
 (* We need a way to iterate over the lines of a file descriptor,
    so that when it is closed, we can stop iterating. This is NOT the case for iterating
@@ -153,44 +84,209 @@ let fd_iter_lines ~f fd =
         Bytes.get buf 0
       with
       | '\n' ->
-          f (String.of_char_list (List.rev !line));
-          line := []
+        f (String.of_char_list (List.rev !line));
+        line := []
       | c -> line := c :: !line
     done
   with End_of_file ->
     if List.length !line <> 0 then f (String.of_char_list (List.rev !line))
 
-let filter_map ~f ~stdin_reader ~stdout_writer ~stderr_writer:_ ~background
-    ~cwd:_ ~env:_ =
+let filter_map ~f ctx =
   let forward () =
-    fd_iter_lines stdin_reader ~f:(fun line ->
+    fd_iter_lines ctx.stdin_reader ~f:(fun line ->
         match f line with
         | Some out ->
-            let buf = Bytes.of_string out in
-            let (_ : int) = Unix.write stdout_writer buf 0 (Bytes.length buf) in
-            let (_ : int) =
-              Unix.write stdout_writer (Bytes.of_string "\n") 0 1
-            in
-            ()
+          let buf = Bytes.of_string out in
+          let (_ : int) =
+            Unix.write ctx.stdout_writer buf 0 (Bytes.length buf)
+          in
+          let (_ : int) =
+            Unix.write ctx.stdout_writer (Bytes.of_string "\n") 0 1
+          in
+          ()
         | None -> ());
-    Unix.close stdout_writer
+    Unix.close ctx.stdout_writer
   in
-  if background then Thread.run forward else forward ()
+  if ctx.background then Thread.run forward else forward ()
 
-let map_lines ~f ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd
-    ~env =
-  filter_map ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
-    ~f:(fun a -> Some (f a))
+let exec prog args ctx =
+  let argv = prog :: args in
+  let prog = resolve_in_path_exn prog in
+  let cwd : Spawn.Working_dir.t =
+    match ctx.cwd with
+    | None -> Inherit
+    | Some cwd ->
+        prerr_endline cwd;
+        Path cwd
+  in
+  let env : Spawn.Env.t option =
+    Option.map ctx.env ~f:(fun env ->
+        List.map env ~f:(fun (key, value) -> Printf.sprintf "%s=%s" key value)
+        |> Spawn.Env.of_list)
+  in
+  (if !debug then
+   let tm = Unix.localtime (Unix.time ()) in
+   eprintf "%d-%d-%d %d:%d:%d - %s %s\n" tm.tm_year tm.tm_mon tm.tm_mday
+     tm.tm_hour tm.tm_min tm.tm_sec prog
+     ("(" ^ String.concat ~sep:" " args ^ ")"));
+  let pid =
+    Spawn.spawn ~cwd ?env ~stdin:ctx.stdin_reader ~stdout:ctx.stdout_writer
+      ~stderr:ctx.stderr_writer ~prog ~argv ()
+  in
+  let finish () =
+    (match snd (Unix.waitpid [] pid) with
+    | WEXITED s -> State.exit := s
+    | WSIGNALED _ -> ()
+    | WSTOPPED _ -> ());
+    Unix.close ctx.stdout_writer;
+    Unix.close ctx.stderr_writer
+  in
+  if ctx.background then Thread.run finish else finish ()
 
-let filter_lines ~f ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd
-    ~env =
-  filter_map ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
-    ~f:(fun a -> if f a then Some a else None)
+let rec eval cmd ctx =
+  match cmd with
+  | Process (name, args) -> exec name args ctx
+  | Pipe (a, b) ->
+    let pipe_reader, pipe_writer = Spawn.safe_pipe () in
+    eval a { ctx with
+             stdout_writer = pipe_writer;
+             stderr_writer = Unix.dup ctx.stderr_writer;
+             background = true };
+    eval b { ctx with stdin_reader = pipe_reader }
+  | And (a, b) ->
+      eval a { ctx with
+               stdout_writer = Unix.dup ctx.stdout_writer;
+               stderr_writer = Unix.dup ctx.stderr_writer };
+      (match !State.exit with
+      | 0 -> eval b ctx
+      | _ ->
+        Unix.close ctx.stdout_writer;
+        Unix.close ctx.stderr_writer)
+  | Or (a, b) ->
+      eval a { ctx with
+          stdout_writer = Unix.dup ctx.stdout_writer;
+          stderr_writer = Unix.dup ctx.stderr_writer };
+      (match !State.exit with
+      | 0 ->
+        Unix.close ctx.stdout_writer;
+        Unix.close ctx.stderr_writer
+      | _ -> eval b ctx)
+  | Seq (a, b) ->
+    eval a {
+        ctx with
+        stdout_writer = Unix.dup ctx.stdout_writer;
+        stderr_writer = Unix.dup ctx.stderr_writer };
+    eval b ctx
+  | WOut (str, cmd) ->
+    Unix.close ctx.stdout_writer;
+    let stdout_writer =
+      Unix.openfile str [ O_WRONLY; O_TRUNC; O_CREAT ] 0o644
+    in
+    eval cmd { ctx with stdout_writer }
+  | AOut (str, cmd) ->
+    Unix.close ctx.stdout_writer;
+    let stdout_writer =
+      Unix.openfile str [ O_WRONLY; O_APPEND; O_CREAT ] 0o644
+    in
+    eval cmd { ctx with stdout_writer }
+  | WErr (str, cmd) ->
+    let stderr_writer =
+      Unix.openfile str [ O_WRONLY; O_TRUNC; O_CREAT ] 0o644
+    in
+    eval cmd { ctx with stderr_writer }
+  | AErr (str, cmd) ->
+    let stderr_writer =
+      Unix.openfile str [ O_WRONLY; O_APPEND; O_CREAT ] 0o644
+    in
+    eval cmd { ctx with stderr_writer }
+  | RIn (str, cmd) ->
+    let stdin_reader = Unix.openfile str [ O_RDONLY ] 0 in
+    eval cmd { ctx with stdin_reader }
+  | OutToErr cmd ->
+    Unix.close ctx.stdout_writer;
+    let stdout_writer = Unix.dup ctx.stderr_writer in
+    eval cmd { ctx with stdout_writer }
+  | ErrToOut cmd ->
+    Unix.close ctx.stderr_writer;
+    let stderr_writer = Unix.dup ctx.stdout_writer in
+    eval cmd { ctx with stderr_writer }
+  | FilterMap f -> filter_map ~f ctx
+
+let process name args = Process (name, args)
+
+let ( |. ) a b = Pipe (a, b)
+
+let and_ a b = And (a, b)
+
+let or_ a b = Or (a, b)
+
+let sequence a b = Seq (a, b)
+
+(* Redirection *)
+
+let write_stdout_to str cmd = WOut (str, cmd)
+
+let append_stdout_to str cmd = AOut (str, cmd)
+
+let write_stderr_to str cmd = WErr (str, cmd)
+
+let append_stderr_to str cmd = AErr (str, cmd)
+
+let read_stdin_from str cmd = RIn (str, cmd)
+
+module Infix = struct
+  let ( &&. ) = and_
+
+  let ( ||. ) = or_
+
+  let ( ->. ) = sequence
+
+  let ( > ) cmd str = write_stdout_to str cmd
+
+  let ( >> ) cmd str = append_stdout_to str cmd
+
+  let ( >! ) cmd str = write_stderr_to str cmd
+
+  let ( >>! ) cmd str = append_stderr_to str cmd
+
+  let ( < ) cmd str = read_stdin_from str cmd
+
+end
+
+let stdout_to_stderr cmd = OutToErr cmd
+
+let stderr_to_stdout cmd = ErrToOut cmd
+
+(* === Redirection === *)
+
+let collect_gen ?cwd ?env cmd =
+  let stdout_reader, stdout_writer = Unix.pipe () in
+  eval cmd { stdin_reader = Unix.dup Unix.stdin;
+             stdout_writer;
+             stderr_writer = Unix.dup Unix.stderr;
+             background = false; cwd; env };
+  Unix.in_channel_of_descr stdout_reader
+
+let collect_stdout ?cwd ?env cmd =
+  let out = In_channel.input_all (collect_gen ?cwd ?env cmd) in
+  (* This might be controversial. The alternative is to export a [trim]
+     command, that makes it easy to do this manually, but I think this
+     is actually less suprising than keeping the newline. *)
+  String.chop_suffix out ~suffix:"\n" |> Option.value ~default:out
+
+let collect_lines ?cwd ?env cmd =
+  In_channel.input_lines (collect_gen ?cwd ?env cmd)
+
+let map_lines ~f = FilterMap (fun a -> Some (f a))
+
+let filter_lines ~f = FilterMap (fun a -> if f a then Some a else None)
 
 let run' ?cwd ?env ~background cmd =
   Caml.flush_all ();
-  cmd ~stdin_reader:(Unix.dup Unix.stdin) ~stdout_writer:(Unix.dup Unix.stdout)
-    ~stderr_writer:(Unix.dup Unix.stderr) ~background ~cwd ~env
+  eval cmd { stdin_reader = Unix.dup Unix.stdin;
+             stdout_writer = Unix.dup Unix.stdout;
+             stderr_writer = Unix.dup Unix.stderr;
+             background; cwd; env }
 
 let run_bg ?cwd ?env = run' ?cwd ?env ~background:true
 
@@ -296,65 +392,6 @@ let sed ?(g = true) pattern replace =
 let tr from_ to_ = process "tr" [ from_; to_ ]
 
 let tr_d chars = process "tr" [ "-d"; chars ]
-
-(* === Redirection === *)
-
-let write_stdout_to str cmd ~stdin_reader ~stdout_writer ~stderr_writer
-    ~background ~cwd ~env =
-  Unix.close stdout_writer;
-  let stdout_writer = Unix.openfile str [ O_WRONLY; O_TRUNC; O_CREAT ] 0o644 in
-  cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
-
-let append_stdout_to str cmd ~stdin_reader ~stdout_writer ~stderr_writer
-    ~background ~cwd ~env =
-  Unix.close stdout_writer;
-  let stdout_writer = Unix.openfile str [ O_WRONLY; O_APPEND; O_CREAT ] 0o644 in
-  cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
-
-let write_stderr_to str cmd ~stdin_reader ~stdout_writer ~stderr_writer:_
-    ~background ~cwd ~env =
-  let stderr_writer = Unix.openfile str [ O_WRONLY; O_TRUNC; O_CREAT ] 0o644 in
-  cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
-
-let append_stderr_to str cmd ~stdin_reader ~stdout_writer ~stderr_writer:_
-    ~background ~cwd ~env =
-  let stderr_writer = Unix.openfile str [ O_WRONLY; O_APPEND; O_CREAT ] 0o644 in
-  cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
-
-let read_stdin_from str cmd ~stdin_reader:_ ~stdout_writer ~stderr_writer
-    ~background ~cwd ~env =
-  let stdin_reader = Unix.openfile str [ O_RDONLY ] 0 in
-  cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
-
-module Infix = struct
-  let ( > ) cmd str = write_stdout_to str cmd
-
-  let ( >> ) cmd str = append_stdout_to str cmd
-
-  let ( >! ) cmd str = write_stderr_to str cmd
-
-  let ( >>! ) cmd str = append_stderr_to str cmd
-
-  let ( < ) cmd str = read_stdin_from str cmd
-
-  let ( &&. ) = and_
-
-  let ( ||. ) = or_
-
-  let ( ->. ) = sequence
-end
-
-let stdout_to_stderr cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background
-    ~cwd ~env =
-  Unix.close stdout_writer;
-  let stdout_writer = Unix.dup stderr_writer in
-  cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
-
-let stderr_to_stdout cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background
-    ~cwd ~env =
-  Unix.close stderr_writer;
-  let stderr_writer = Unix.dup stdout_writer in
-  cmd ~stdin_reader ~stdout_writer ~stderr_writer ~background ~cwd ~env
 
 (* === Misc === *)
 
