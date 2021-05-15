@@ -7,19 +7,7 @@ val process : string -> string list -> cmd
 
 (* === Basic commands === *)
 
-val cat : string -> cmd
-
-val echo : string -> cmd
-
 val ls : string -> cmd
-
-val sh : string -> cmd
-
-val rg : ?in_:string -> string -> cmd
-(** [in_] is the directory that should be rg'd: rg <search> <in>. Without it, it'll filter
-    stdin, just rg <search> *)
-
-val rg_v : ?in_:string -> string -> cmd
 
 val find :
   ?include_starting_dir:bool ->
@@ -38,19 +26,23 @@ val find :
     utility.
 *)
 
-val tr : string -> string -> cmd
+val sh : string -> cmd
 
-val tr_d : string -> cmd
+val rg : ?in_:string -> string -> cmd
+(** [in_] is the directory that should be rg'd: rg <search> <in>. Without it, it'll filter
+    stdin, just rg <search> *)
+
+val rg_v : ?in_:string -> string -> cmd
 
 val grep : ?in_:string -> string -> cmd
+
+val cat : string -> cmd
+
+val less : cmd
 
 val mkdir : string -> cmd
 
 val mkdir_p : string -> cmd
-
-val pwd : cmd
-
-val less : cmd
 
 val sort : cmd
 
@@ -64,11 +56,19 @@ val tail : ?file:string -> int -> cmd
 
 val tail_f : string -> cmd
 
+val echo : string -> cmd
+
+val cut' : ?complement:unit -> ?d:char -> int list -> cmd
+
+val cut : ?d:char (** defaults to a space *) -> int -> cmd
+
 val cp : string -> string -> cmd
 
 val cp_r : string -> string -> cmd
 
 val mv : string -> string -> cmd
+
+val pwd : cmd
 
 val sed :
   ?g:bool (** defaults to TRUE *) ->
@@ -76,9 +76,9 @@ val sed :
   string (** replacement *) ->
   cmd
 
-val cut : ?d:char (** defaults to a space *) -> int -> cmd
+val tr : string -> string -> cmd
 
-val cut' : ?complement:unit -> ?d:char -> int list -> cmd
+val tr_d : string -> cmd
 
 (* === Using [cmd]'s in OCaml === *)
 
@@ -94,10 +94,10 @@ val or_ : cmd -> cmd -> cmd
 val sequence : cmd -> cmd -> cmd
 (** [ sequence ] is feather's version of a ";" in bash. See Infix module for more. *)
 
+val collect_stdout : ?cwd:string -> ?env:(string * string) list -> cmd -> string
+
 val collect_lines :
   ?cwd:string -> ?env:(string * string) list -> cmd -> string list
-
-val collect_stdout : ?cwd:string -> ?env:(string * string) list -> cmd -> string
 
 val map_lines : f:(string -> string) -> cmd
 
@@ -123,19 +123,6 @@ val append_stderr_to : string -> cmd -> cmd
 val read_stdin_from : string -> cmd -> cmd
 
 module Infix : sig
-  val ( > ) : cmd -> string -> cmd
-  (** Redirect Stdout *)
-
-  val ( >> ) : cmd -> string -> cmd
-
-  val ( >! ) : cmd -> string -> cmd
-  (** Redirect Stderr *)
-
-  val ( >>! ) : cmd -> string -> cmd
-
-  val ( < ) : cmd -> string -> cmd
-  (** Read file from stdin *)
-
   val ( &&. ) : cmd -> cmd -> cmd
   (** Same as [and_] *)
 
@@ -148,6 +135,19 @@ module Infix : sig
       [->.] binds more tightly than [|.] so parentheses should be used when
       chaining the two.
   *)
+
+  val ( > ) : cmd -> string -> cmd
+  (** Redirect Stdout *)
+
+  val ( >> ) : cmd -> string -> cmd
+
+  val ( >! ) : cmd -> string -> cmd
+  (** Redirect Stderr *)
+
+  val ( >>! ) : cmd -> string -> cmd
+
+  val ( < ) : cmd -> string -> cmd
+  (** Read file from stdin *)
 end
 
 val stdout_to_stderr : cmd -> cmd
@@ -161,11 +161,11 @@ val stderr_to_stdout : cmd -> cmd
 
 (* === Misc === *)
 
-val devnull : string
-(** [devnull] is easier to type than "/dev/null" *)
-
 val last_exit : unit -> int
 (** [last_exit] returns the exit status of the last child process to have exited *)
+
+val devnull : string
+(** [devnull] is easier to type than "/dev/null" *)
 
 val fzf : ?cwd:string -> ?env:(string * string) list -> cmd -> string option
 (** [fzf] runs the command, and fuzzy finds the stdout.
