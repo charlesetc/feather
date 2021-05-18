@@ -44,12 +44,12 @@ type cmd =
   | Pipe of cmd * cmd
   | And of cmd * cmd
   | Or of cmd * cmd
-  | Seq of cmd * cmd
-  | WOut of string * cmd
-  | AOut of string * cmd
-  | WErr of string * cmd
-  | AErr of string * cmd
-  | RIn of string * cmd
+  | Sequence of cmd * cmd
+  | WriteOutTo of string * cmd
+  | AppendOutTo of string * cmd
+  | WriteErrTo of string * cmd
+  | AppendErrTo of string * cmd
+  | ReadInFrom of string * cmd
   | OutToErr of cmd
   | ErrToOut of cmd
   | FilterMap of (string -> string option)
@@ -171,35 +171,35 @@ let rec eval cmd ctx =
         Unix.close ctx.stdout_writer;
         Unix.close ctx.stderr_writer
       | _ -> eval b ctx)
-  | Seq (a, b) ->
+  | Sequence (a, b) ->
     eval a {
         ctx with
         stdout_writer = Unix.dup ctx.stdout_writer;
         stderr_writer = Unix.dup ctx.stderr_writer };
     eval b ctx
-  | WOut (str, cmd) ->
+  | WriteOutTo (str, cmd) ->
     Unix.close ctx.stdout_writer;
     let stdout_writer =
       Unix.openfile str [ O_WRONLY; O_TRUNC; O_CREAT ] 0o644
     in
     eval cmd { ctx with stdout_writer }
-  | AOut (str, cmd) ->
+  | AppendOutTo (str, cmd) ->
     Unix.close ctx.stdout_writer;
     let stdout_writer =
       Unix.openfile str [ O_WRONLY; O_APPEND; O_CREAT ] 0o644
     in
     eval cmd { ctx with stdout_writer }
-  | WErr (str, cmd) ->
+  | WriteErrTo (str, cmd) ->
     let stderr_writer =
       Unix.openfile str [ O_WRONLY; O_TRUNC; O_CREAT ] 0o644
     in
     eval cmd { ctx with stderr_writer }
-  | AErr (str, cmd) ->
+  | AppendErrTo (str, cmd) ->
     let stderr_writer =
       Unix.openfile str [ O_WRONLY; O_APPEND; O_CREAT ] 0o644
     in
     eval cmd { ctx with stderr_writer }
-  | RIn (str, cmd) ->
+  | ReadInFrom (str, cmd) ->
     let stdin_reader = Unix.openfile str [ O_RDONLY ] 0 in
     eval cmd { ctx with stdin_reader }
   | OutToErr cmd ->
@@ -220,19 +220,19 @@ let and_ a b = And (a, b)
 
 let or_ a b = Or (a, b)
 
-let sequence a b = Seq (a, b)
+let sequence a b = Sequence (a, b)
 
 (* Redirection *)
 
-let write_stdout_to str cmd = WOut (str, cmd)
+let write_stdout_to str cmd = WriteOutTo (str, cmd)
 
-let append_stdout_to str cmd = AOut (str, cmd)
+let append_stdout_to str cmd = AppendOutTo (str, cmd)
 
-let write_stderr_to str cmd = WErr (str, cmd)
+let write_stderr_to str cmd = WriteErrTo (str, cmd)
 
-let append_stderr_to str cmd = AErr (str, cmd)
+let append_stderr_to str cmd = AppendErrTo (str, cmd)
 
-let read_stdin_from str cmd = RIn (str, cmd)
+let read_stdin_from str cmd = ReadInFrom (str, cmd)
 
 module Infix = struct
   let ( &&. ) = and_
