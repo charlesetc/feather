@@ -5,9 +5,24 @@ module Sys = Caml.Sys
 module Unix = struct
   include Unix
 
+  let rec try_until_no_eintr f =
+    try f () with Unix.Unix_error (Unix.EINTR, _, _) -> try_until_no_eintr f
+
+  let with_restart_on_eintr ?(restart = false) f =
+    if restart then try_until_no_eintr f else f ()
+
   let dup = dup ~cloexec:true
 
   let pipe = pipe ~cloexec:true
+
+  let read ?restart fd buf pos len =
+    with_restart_on_eintr ?restart (fun () -> read fd buf pos len)
+
+  let write ?restart fd buf pos len =
+    with_restart_on_eintr ?restart (fun () -> write fd buf pos len)
+
+  let waitpid ?(restart = true) wait_flags pid =
+    with_restart_on_eintr ~restart (fun () -> waitpid wait_flags pid)
 end
 
 module Thread = struct
@@ -407,7 +422,13 @@ let fzf ?cwd ?env cmd =
 let terminate_child_processes () =
   process "pgrep" [ "-P"; Int.to_string State.pid ]
   |> collect_lines |> List.map ~f:Int.of_string
-  |> List.iter ~f:(fun pid -> ignore (Unix.kill Sys.sigterm pid))
+  |> List.iter ~f:(fun pid ->
+         try Unix.kill Sys.sigterm pid
+         with Unix.Unix_error (Unix.ESRCH, _, _) ->
+           (* [Unix.ERSCH] is raised when a process cannot be found, which
+            * means that the child has already terminated, so it should
+            * be safe to ignore this exception. *)
+           ())
 
 let () = Caml.at_exit terminate_child_processes
 
@@ -517,4 +538,10 @@ hi
     let%expect_test "redirection" =
       (* TODO: tests for redirection *)
       ()
+
+    let%expect_test "waitpid should retry on EINTR" =
+      process "kill"
+        (List.map ~f:Int.to_string [ Caml.Sys.sigurg; Unix.getpid () ])
+      |> print;
+      [%expect ""]
   end)
