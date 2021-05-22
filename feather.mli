@@ -5,6 +5,9 @@ type cmd
 val process : string -> string list -> cmd
 (** [process] constructs a new command *)
 
+val ( |. ) : cmd -> cmd -> cmd
+(** [ |. ] is feather's version of a "|" in bash. *)
+
 (* === Basic commands === *)
 
 val ls : string -> cmd
@@ -81,9 +84,6 @@ val tr : string -> string -> cmd
 val tr_d : string -> cmd
 
 (* === Using [cmd]'s in OCaml === *)
-
-val ( |. ) : cmd -> cmd -> cmd
-(** [ |. ] is feather's version of a "|" in bash. *)
 
 val and_ : cmd -> cmd -> cmd
 (** [ and_ ] is feather's version of a "&&" in bash. See Infix module for more. *)
