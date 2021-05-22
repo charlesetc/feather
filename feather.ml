@@ -99,8 +99,8 @@ let fd_iter_lines ~f fd =
         Bytes.get buf 0
       with
       | '\n' ->
-        f (String.of_char_list (List.rev !line));
-        line := []
+          f (String.of_char_list (List.rev !line));
+          line := []
       | c -> line := c :: !line
     done
   with End_of_file ->
@@ -111,14 +111,14 @@ let filter_map ~f ctx =
     fd_iter_lines ctx.stdin_reader ~f:(fun line ->
         match f line with
         | Some out ->
-          let buf = Bytes.of_string out in
-          let (_ : int) =
-            Unix.write ctx.stdout_writer buf 0 (Bytes.length buf)
-          in
-          let (_ : int) =
-            Unix.write ctx.stdout_writer (Bytes.of_string "\n") 0 1
-          in
-          ()
+            let buf = Bytes.of_string out in
+            let (_ : int) =
+              Unix.write ctx.stdout_writer buf 0 (Bytes.length buf)
+            in
+            let (_ : int) =
+              Unix.write ctx.stdout_writer (Bytes.of_string "\n") 0 1
+            in
+            ()
         | None -> ());
     Unix.close ctx.stdout_writer
   in
@@ -162,69 +162,80 @@ let rec eval cmd ctx =
   match cmd with
   | Process (name, args) -> exec name args ctx
   | Pipe (a, b) ->
-    let pipe_reader, pipe_writer = Spawn.safe_pipe () in
-    eval a { ctx with
-             stdout_writer = pipe_writer;
-             stderr_writer = Unix.dup ctx.stderr_writer;
-             background = true };
-    eval b { ctx with stdin_reader = pipe_reader }
-  | And (a, b) ->
-      eval a { ctx with
-               stdout_writer = Unix.dup ctx.stdout_writer;
-               stderr_writer = Unix.dup ctx.stderr_writer };
-      (match !State.exit with
+      let pipe_reader, pipe_writer = Spawn.safe_pipe () in
+      eval a
+        {
+          ctx with
+          stdout_writer = pipe_writer;
+          stderr_writer = Unix.dup ctx.stderr_writer;
+          background = true;
+        };
+      eval b { ctx with stdin_reader = pipe_reader }
+  | And (a, b) -> (
+      eval a
+        {
+          ctx with
+          stdout_writer = Unix.dup ctx.stdout_writer;
+          stderr_writer = Unix.dup ctx.stderr_writer;
+        };
+      match !State.exit with
       | 0 -> eval b ctx
       | _ ->
-        Unix.close ctx.stdout_writer;
-        Unix.close ctx.stderr_writer)
-  | Or (a, b) ->
-      eval a { ctx with
+          Unix.close ctx.stdout_writer;
+          Unix.close ctx.stderr_writer)
+  | Or (a, b) -> (
+      eval a
+        {
+          ctx with
           stdout_writer = Unix.dup ctx.stdout_writer;
-          stderr_writer = Unix.dup ctx.stderr_writer };
-      (match !State.exit with
+          stderr_writer = Unix.dup ctx.stderr_writer;
+        };
+      match !State.exit with
       | 0 ->
-        Unix.close ctx.stdout_writer;
-        Unix.close ctx.stderr_writer
+          Unix.close ctx.stdout_writer;
+          Unix.close ctx.stderr_writer
       | _ -> eval b ctx)
   | Sequence (a, b) ->
-    eval a {
-        ctx with
-        stdout_writer = Unix.dup ctx.stdout_writer;
-        stderr_writer = Unix.dup ctx.stderr_writer };
-    eval b ctx
+      eval a
+        {
+          ctx with
+          stdout_writer = Unix.dup ctx.stdout_writer;
+          stderr_writer = Unix.dup ctx.stderr_writer;
+        };
+      eval b ctx
   | WriteOutTo (str, cmd) ->
-    Unix.close ctx.stdout_writer;
-    let stdout_writer =
-      Unix.openfile str [ O_WRONLY; O_TRUNC; O_CREAT ] 0o644
-    in
-    eval cmd { ctx with stdout_writer }
+      Unix.close ctx.stdout_writer;
+      let stdout_writer =
+        Unix.openfile str [ O_WRONLY; O_TRUNC; O_CREAT ] 0o644
+      in
+      eval cmd { ctx with stdout_writer }
   | AppendOutTo (str, cmd) ->
-    Unix.close ctx.stdout_writer;
-    let stdout_writer =
-      Unix.openfile str [ O_WRONLY; O_APPEND; O_CREAT ] 0o644
-    in
-    eval cmd { ctx with stdout_writer }
+      Unix.close ctx.stdout_writer;
+      let stdout_writer =
+        Unix.openfile str [ O_WRONLY; O_APPEND; O_CREAT ] 0o644
+      in
+      eval cmd { ctx with stdout_writer }
   | WriteErrTo (str, cmd) ->
-    let stderr_writer =
-      Unix.openfile str [ O_WRONLY; O_TRUNC; O_CREAT ] 0o644
-    in
-    eval cmd { ctx with stderr_writer }
+      let stderr_writer =
+        Unix.openfile str [ O_WRONLY; O_TRUNC; O_CREAT ] 0o644
+      in
+      eval cmd { ctx with stderr_writer }
   | AppendErrTo (str, cmd) ->
-    let stderr_writer =
-      Unix.openfile str [ O_WRONLY; O_APPEND; O_CREAT ] 0o644
-    in
-    eval cmd { ctx with stderr_writer }
+      let stderr_writer =
+        Unix.openfile str [ O_WRONLY; O_APPEND; O_CREAT ] 0o644
+      in
+      eval cmd { ctx with stderr_writer }
   | ReadInFrom (str, cmd) ->
-    let stdin_reader = Unix.openfile str [ O_RDONLY ] 0 in
-    eval cmd { ctx with stdin_reader }
+      let stdin_reader = Unix.openfile str [ O_RDONLY ] 0 in
+      eval cmd { ctx with stdin_reader }
   | OutToErr cmd ->
-    Unix.close ctx.stdout_writer;
-    let stdout_writer = Unix.dup ctx.stderr_writer in
-    eval cmd { ctx with stdout_writer }
+      Unix.close ctx.stdout_writer;
+      let stdout_writer = Unix.dup ctx.stderr_writer in
+      eval cmd { ctx with stdout_writer }
   | ErrToOut cmd ->
-    Unix.close ctx.stderr_writer;
-    let stderr_writer = Unix.dup ctx.stdout_writer in
-    eval cmd { ctx with stderr_writer }
+      Unix.close ctx.stderr_writer;
+      let stderr_writer = Unix.dup ctx.stdout_writer in
+      eval cmd { ctx with stderr_writer }
   | FilterMap f -> filter_map ~f ctx
 
 let process name args = Process (name, args)
@@ -265,7 +276,6 @@ module Infix = struct
   let ( >>! ) cmd str = append_stderr_to str cmd
 
   let ( < ) cmd str = read_stdin_from str cmd
-
 end
 
 let stdout_to_stderr cmd = OutToErr cmd
@@ -276,10 +286,15 @@ let stderr_to_stdout cmd = ErrToOut cmd
 
 let collect_gen ?cwd ?env cmd =
   let stdout_reader, stdout_writer = Unix.pipe () in
-  eval cmd { stdin_reader = Unix.dup Unix.stdin;
-             stdout_writer;
-             stderr_writer = Unix.dup Unix.stderr;
-             background = false; cwd; env };
+  eval cmd
+    {
+      stdin_reader = Unix.dup Unix.stdin;
+      stdout_writer;
+      stderr_writer = Unix.dup Unix.stderr;
+      background = false;
+      cwd;
+      env;
+    };
   Unix.in_channel_of_descr stdout_reader
 
 let collect_stdout ?cwd ?env cmd =
@@ -298,10 +313,15 @@ let filter_lines ~f = FilterMap (fun a -> if f a then Some a else None)
 
 let run' ?cwd ?env ~background cmd =
   Caml.flush_all ();
-  eval cmd { stdin_reader = Unix.dup Unix.stdin;
-             stdout_writer = Unix.dup Unix.stdout;
-             stderr_writer = Unix.dup Unix.stderr;
-             background; cwd; env }
+  eval cmd
+    {
+      stdin_reader = Unix.dup Unix.stdin;
+      stdout_writer = Unix.dup Unix.stdout;
+      stderr_writer = Unix.dup Unix.stderr;
+      background;
+      cwd;
+      env;
+    }
 
 let run_bg ?cwd ?env = run' ?cwd ?env ~background:true
 
