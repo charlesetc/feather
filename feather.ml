@@ -92,16 +92,15 @@ let fd_iter_lines ~f fd =
   let line = ref [] in
   try
     while true do
-      match
-        let read = Unix.read fd buf 0 1 in
-        if read = 0 then raise End_of_file;
-        assert (read = 1);
-        Bytes.get buf 0
-      with
-      | '\n' ->
-          f (String.of_char_list (List.rev !line));
-          line := []
-      | c -> line := c :: !line
+      match Unix.read fd buf 0 1 with
+      | 0 -> raise End_of_file
+      | 1 -> (
+          match Bytes.get buf 0 with
+          | '\n' ->
+              f (String.of_char_list (List.rev !line));
+              line := []
+          | c -> line := c :: !line)
+      | _ -> assert false
     done
   with End_of_file ->
     if List.length !line <> 0 then f (String.of_char_list (List.rev !line))
