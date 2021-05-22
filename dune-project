@@ -10,5 +10,5 @@
 
 (package
   (name "feather")
-  (synopsis "A very minimal shell interface")
+  (synopsis "A minimal shell interface")
   (depends dune base spawn))
