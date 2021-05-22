@@ -1,0 +1,5 @@
+Attribution Notices
+---
+
+- The function [try_until_no_eintr] has been taken from the Core_unix libary,
+  kindly open sourced by Jane Street [here](https://github.com/janestreet/core/blob/de2aea339e4b0ccaea30c78455e6641993234f01/src/core_unix.ml#L26).
