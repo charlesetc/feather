@@ -1,6 +1,6 @@
 (lang dune 2.6)
 (name feather)
-(version b1fb1b724cc0)
+(version 0.2.0)
 (license MIT)
 (homepage "https://github.com/charlesetc/feather")
 (bug_reports "https://github.com/charlesetc/feather/issues")
