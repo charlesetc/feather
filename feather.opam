@@ -12,7 +12,6 @@ depends: [
   "base"
   "ppx_expect"
   "stdio"
-  "threads"
   "spawn"
 ]
 build: [
