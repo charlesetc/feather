@@ -8,14 +8,15 @@ license: "MIT"
 homepage: "https://github.com/charlesetc/feather"
 bug-reports: "https://github.com/charlesetc/feather/issues"
 depends: [
-  "dune" {>= "2.6"}
+  "dune" {>= "2.7"}
   "base"
   "ppx_expect"
   "stdio"
   "spawn"
+  "odoc" {with-doc}
 ]
 build: [
-  ["dune" "subst"] {pinned}
+  ["dune" "subst"] {dev}
   [
     "dune"
     "build"
@@ -24,6 +25,7 @@ build: [
     "-j"
     jobs
     "@install"
+    "@runtest" {with-test}
     "@doc" {with-doc}
   ]
 ]

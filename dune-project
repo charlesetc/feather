@@ -1,4 +1,4 @@
-(lang dune 2.6)
+(lang dune 2.7)
 (name feather)
 (version 0.2.0)
 (license MIT)
