@@ -11,4 +11,4 @@
 (package
   (name "feather")
   (synopsis "A minimal shell interface")
-  (depends dune base spawn))
+  (depends dune base ppx_expect stdio threads spawn))

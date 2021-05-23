@@ -10,6 +10,9 @@ bug-reports: "https://github.com/charlesetc/feather/issues"
 depends: [
   "dune" {>= "2.6"}
   "base"
+  "ppx_expect"
+  "stdio"
+  "threads"
   "spawn"
 ]
 build: [
