@@ -3,6 +3,7 @@
 (version 0.2.0)
 (license MIT)
 (homepage "https://github.com/charlesetc/feather")
+(source (github charlesetc/feather))
 (bug_reports "https://github.com/charlesetc/feather/issues")
 (authors "Charles Chamberlain")
 (maintainers "charles@nrwhl.xyz")
