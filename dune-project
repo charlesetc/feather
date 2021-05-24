@@ -12,4 +12,10 @@
 (package
   (name "feather")
   (synopsis "A minimal shell interface")
-  (depends dune base ppx_expect stdio spawn))
+  (depends
+   (ocaml (>= 4.08))
+   dune
+   base
+   ppx_expect
+   stdio
+   spawn))
