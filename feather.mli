@@ -94,19 +94,38 @@ val or_ : cmd -> cmd -> cmd
 val sequence : cmd -> cmd -> cmd
 (** [ sequence ] is feather's version of a ";" in bash. See Infix module for more. *)
 
-val collect_stdout : ?cwd:string -> ?env:(string * string) list -> cmd -> string
-
-val collect_lines :
-  ?cwd:string -> ?env:(string * string) list -> cmd -> string list
-
 val map_lines : f:(string -> string) -> cmd
 
 val filter_lines : f:(string -> bool) -> cmd
 (** [map] within a series of pipes will be run in a thread.  *)
 
-val run : ?cwd:string -> ?env:(string * string) list -> cmd -> unit
+val lines : string -> string list
+(** Transforms a string into the list of its lines *)
 
+type 'a what_to_collect
+(** The type that determines what should be returned by {!collect} *)
+
+val stdout : string what_to_collect
+val stderr : string what_to_collect
+val status : int what_to_collect
+val everything : (string * string * int) what_to_collect
+val stdout_and_stderr : (string * string) what_to_collect
+val stdout_and_status : (string * int) what_to_collect
+val stderr_and_status : (string * int) what_to_collect
+
+(** Various collection possibilities, to be used with {!collect} *)
+
+val collect : ?cwd:string -> ?env:(string * string) list ->
+  'a what_to_collect -> cmd -> 'a
+(** [ collect col cmd ] runs [cmd], collecting the outputs specified by [col]
+    along the way and returning them. The return type depends on what is
+    collected. *)
+
+val run : ?cwd:string -> ?env:(string * string) list -> cmd -> unit
 val run_bg : ?cwd:string -> ?env:(string * string) list -> cmd -> unit
+(** Run a command in foreground or background without capturing anything.
+The exit status is lost. *)
+
 (** Run the process in a thread. Use [wait] to ensure that the parent
  won't exit, subsequently killing the background process. *)
 
@@ -160,9 +179,6 @@ val stderr_to_stdout : cmd -> cmd
     [flip_stdout_and_stderr] should be easy to write if anyone should need it. *)
 
 (* === Misc === *)
-
-val last_exit : unit -> int
-(** [last_exit] returns the exit status of the last child process to have exited *)
 
 val devnull : string
 (** [devnull] is easier to type than "/dev/null" *)
