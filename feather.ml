@@ -34,8 +34,6 @@ module Thread = struct
 end
 
 module State = struct
-  let exit = ref 0
-
   let pid = Unix.getpid ()
 end
 
@@ -67,6 +65,16 @@ type cmd =
   | OutToErr of cmd
   | ErrToOut of cmd
   | FilterMap of (string -> string option)
+
+(* GADT type to accomplish dynamic return types for collect *)
+type _ what_to_collect =
+  | ColStatus : int what_to_collect
+  | ColStdout : string what_to_collect
+  | ColStderr : string what_to_collect
+  | ColStdoutStderr : (string * string) what_to_collect
+  | ColStdoutStatus : (string * int) what_to_collect
+  | ColStderrStatus : (string * int) what_to_collect
+  | ColEverything : (string * string * int) what_to_collect
 
 let resolve_in_path prog =
   (* Do not try to resolve in the path if the program is something like
@@ -149,9 +157,9 @@ let exec prog args ctx =
     | WSIGNALED s | WSTOPPED s -> 128 + s
     (* using common convention *)
   in
+  Unix.close ctx.stdin_reader;
   Unix.close ctx.stdout_writer;
   Unix.close ctx.stderr_writer;
-  Unix.close ctx.stdin_reader;
   status
 
 let success_status x = x = 0
@@ -293,32 +301,76 @@ let stdout_to_stderr cmd = OutToErr cmd
 
 let stderr_to_stdout cmd = ErrToOut cmd
 
-(* === Redirection === *)
+(* === Collection facilities === *)
 
-let collect_gen ?cwd ?env cmd =
-  let stdout_reader, stdout_writer = Unix.pipe () in
-  let status =
-    eval cmd
-      {
-        stdin_reader = Unix.dup Unix.stdin;
-        stdout_writer;
-        stderr_writer = Unix.dup Unix.stderr;
-        cwd;
-        env;
-      }
+let status = ColStatus
+let stdout = ColStdout
+let stderr = ColStderr
+let stdout_and_stderr = ColStdoutStderr
+let stdout_and_status = ColStdoutStatus
+let stderr_and_status = ColStderrStatus
+let everything = ColEverything
+
+(* Opens a pipe for selected outputs and returns them optionally
+ * after executing the command *)
+let collect_gen ?cwd ?env (sel_stdout, sel_stderr) cmd =
+  let f def cond = if cond then 
+      let a, b = Unix.pipe () in
+      (Some (Unix.in_channel_of_descr a), b)
+    else (None, Unix.dup def)
   in
-  State.exit := status;
-  Unix.in_channel_of_descr stdout_reader
+  let stdout_reader, stdout_writer = f Unix.stdout sel_stdout in
+  let stderr_reader, stderr_writer = f Unix.stderr sel_stderr in
+  let status = eval cmd { stdin_reader = Unix.dup Unix.stdin;
+                          stdout_writer;
+                          stderr_writer;
+                          cwd; env } in
+  (status, stdout_reader, stderr_reader)
 
-let collect_stdout ?cwd ?env cmd =
-  let out = In_channel.input_all (collect_gen ?cwd ?env cmd) in
+(* Should we collect stdout, stderr ? *)
+let selector_switch : type a. a what_to_collect -> (bool * bool) = function
+  | ColStatus -> (false, false)
+  | ColStdout
+  | ColStdoutStatus -> (true, false)
+  | ColStderr
+  | ColStderrStatus -> (false, true)
+  | ColStdoutStderr
+  | ColEverything -> (true, true)
+
+(* Take the collected status and potential stdout/stderr streams, return the
+ * expected output of collect *)
+let pack : type a. int -> (string option * string option) -> a what_to_collect -> a =
+  fun status (stdout, stderr) collection -> match collection, stdout, stderr with
+    | ColStatus, _, _ -> status
+    | ColStdout, Some x, _ -> x
+    | ColStdoutStatus, Some x, _ -> (x, status)
+    | ColStderr, _, Some x -> x
+    | ColStderrStatus, _, Some x -> (x, status)
+    | ColStdoutStderr, Some x, Some y -> (x, y)
+    | ColEverything, Some x, Some y -> (x, y, status)
+    | _ -> failwith "Did not collect the expected outputs"
+
+(* Take an input channel and read everything into a single string *)
+let collect_all' chan =
+  let out = In_channel.input_all chan in
   (* This might be controversial. The alternative is to export a [trim]
      command, that makes it easy to do this manually, but I think this
-     is actually less suprising than keeping the newline. *)
-  String.chop_suffix out ~suffix:"\n" |> Option.value ~default:out
+     is actually less surprising than keeping the newline. *)
+  String.chop_suffix_if_exists out ~suffix:"\n"
 
-let collect_lines ?cwd ?env cmd =
-  In_channel.input_lines (collect_gen ?cwd ?env cmd)
+let collect ?cwd ?env collection cmd =
+  (* Launch the command and collect expected channels *)
+  let status, stdout_reader, stderr_reader =
+    collect_gen ?cwd ?env (selector_switch collection) cmd
+  in
+  (* Transform collected channels into strings *)
+  let prepare = Option.map ~f:collect_all' in
+  let stdout = prepare stdout_reader in
+  let stderr = prepare stderr_reader in
+  (* Pack everything in the GADT type *)
+  pack status (stdout, stderr) collection 
+
+let lines = String.split_lines
 
 let map_lines ~f = FilterMap (fun a -> Some (f a))
 
@@ -327,19 +379,11 @@ let filter_lines ~f = FilterMap (fun a -> if f a then Some a else None)
 let run' ?cwd ?env ~background cmd =
   Caml.flush_all ();
   let go () =
-    eval cmd
-      {
-        stdin_reader = Unix.dup Unix.stdin;
-        stdout_writer = Unix.dup Unix.stdout;
-        stderr_writer = Unix.dup Unix.stderr;
-        cwd;
-        env;
-      }
-  in
-  if background then Thread.run go
-  else
-    let status = go () in
-    State.exit := status
+    eval cmd { stdin_reader = Unix.dup Unix.stdin;
+               stdout_writer = Unix.dup Unix.stdout;
+               stderr_writer = Unix.dup Unix.stderr;
+               cwd; env }
+  in if background then Thread.run go else go () |> ignore
 
 let run_bg ?cwd ?env = run' ?cwd ?env ~background:true
 
@@ -448,18 +492,16 @@ let tr_d chars = process "tr" [ "-d"; chars ]
 
 (* === Misc === *)
 
-let last_exit () = !State.exit
-
 let devnull = "/dev/null"
 
 let fzf ?cwd ?env cmd =
-  let stdout = cmd |. process "fzf" [] |> collect_stdout ?cwd ?env in
-  if last_exit () = 0 then Some stdout else None
+  let stdout, status = cmd |. process "fzf" [] |> collect ?cwd ?env stdout_and_status in
+  if status = 0 then Some stdout else None
 
 (* === Signals === *)
 let terminate_child_processes () =
   process "pgrep" [ "-P"; Int.to_string State.pid ]
-  |> collect_lines |> List.map ~f:Int.of_string
+  |> collect stdout |> lines |> List.map ~f:Int.of_string
   |> List.iter ~f:(fun pid ->
          try Unix.kill Sys.sigterm pid
          with Unix.Unix_error (Unix.ESRCH, _, _) ->
@@ -476,7 +518,7 @@ let%test_module _ =
   (module struct
     open Infix
 
-    let print cmd = collect_lines cmd |> List.iter ~f:print_endline
+    let print cmd = cmd |> collect stdout |> lines |> List.iter ~f:print_endline
 
     let%expect_test _ =
       echo "hi\n" |> print;
@@ -566,20 +608,35 @@ hi
       echo "test" |. process "false" [] ->. cat "-" |> print;
       [%expect "test"]
 
-    let%expect_test "redirection" =
+    let%expect_test "find" =
       find "." ~ignore_hidden:true ~kind:`Files ~name:"*.ml"
       |. rg_v {|\.pp\.|} |. sort |> print;
       [%expect {|
         ./example.ml
         ./feather.ml |}]
 
-    let%expect_test "redirection" =
-      (* TODO: tests for redirection *)
-      ()
-
     let%expect_test "waitpid should retry on EINTR" =
       process "kill"
         (List.map ~f:Int.to_string [ Caml.Sys.sigurg; Unix.getpid () ])
       |> print;
       [%expect ""]
+
+    let%expect_test "redirection/collection" =
+      let print_stat (stdout, stderr) = 
+        printf "Stdout:%s\nStderr:%s\n" stdout stderr
+      in
+      echo "test" |> collect stdout_and_stderr |> print_stat;
+      (echo "test1" |> stdout_to_stderr) &&. echo "test2" |> collect
+        stdout_and_stderr |> print_stat;
+      (echo "test1" |> stdout_to_stderr) &&. echo "test2" |> stderr_to_stdout |>
+      collect stdout_and_stderr |> print_stat ;
+      [%expect {|
+        Stdout:test
+        Stderr:
+        Stdout:test2
+        Stderr:test1
+        Stdout:test1
+        test2
+        Stderr:
+        |}]
   end)

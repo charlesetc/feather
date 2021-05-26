@@ -18,7 +18,7 @@ let __ () =
   for i = 0 to 3 do
     let output = "/tmp/output" ^ Int.to_string i in
     cat "/usr/share/dict/words" |. shuf |. head 5 > output |> run;
-    match tr "a-z" "A-Z" < output |> collect_lines with
+    match tr "a-z" "A-Z" < output |> collect stdout |> lines with
     | [ a; b; c; d; e ] ->
         (printf "You are a %s %s and I think this is the %s %s of all %s.\n")
           a b c d e
@@ -44,5 +44,10 @@ let () =
   |. process "sort" [ "-n" ]
   |. process "uniq" [ "-c" ]
   |> run
+
+let __ () =
+  let stderr, status =
+    ls "thisfiledoesnotexists" |> collect stderr_and_status in
+  printf "ls returned error code %d: %s\n" status stderr
 
 (* let () = ls "." |> run ~cwd:"_build" *)
