@@ -203,14 +203,15 @@ As a comparison, say you wanted to count the number of characters from
 "ls" using Shexp:
 
 ``` ocaml
-let (number_of_chars : int Shexp_process.t) =
-  let%map.Shexp_process _, stdout =
-    Shexp_process.run "ls" [] |> Shexp_process.capture [ Stdout ]
-  in
-  String.length stdout
-in
-let length = Shexp_process.eval number_of_chars in
-print_int length
+#require "shexp.process";;
+open Shexp_process;;
+let (let+) x f = bind x ~f;;
+
+eval Infix.(
+     call ["ls"]
+  |- let+ s = read_all in
+     printf "%i\n%!" (String.length s)
+);;
 ```
 
 (I hope that it's more-or-less idiomatic, but am not sure.)
