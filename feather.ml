@@ -153,7 +153,8 @@ let exec prog args ctx =
     | WSIGNALED _ -> ()
     | WSTOPPED _ -> ());
     Unix.close ctx.stdout_writer;
-    Unix.close ctx.stderr_writer
+    Unix.close ctx.stderr_writer;
+    Unix.close ctx.stdin_reader
   in
   if ctx.background then Thread.run finish else finish ()
 
@@ -176,23 +177,28 @@ let rec eval cmd ctx =
           ctx with
           stdout_writer = Unix.dup ctx.stdout_writer;
           stderr_writer = Unix.dup ctx.stderr_writer;
+          stdin_reader = Unix.dup ctx.stdin_reader
         };
       match !State.exit with
       | 0 -> eval b ctx
       | _ ->
           Unix.close ctx.stdout_writer;
-          Unix.close ctx.stderr_writer)
+          Unix.close ctx.stderr_writer;
+          Unix.close ctx.stdin_reader
+    )
   | Or (a, b) -> (
       eval a
         {
           ctx with
           stdout_writer = Unix.dup ctx.stdout_writer;
           stderr_writer = Unix.dup ctx.stderr_writer;
+          stdin_reader = Unix.dup ctx.stdin_reader
         };
       match !State.exit with
       | 0 ->
           Unix.close ctx.stdout_writer;
-          Unix.close ctx.stderr_writer
+          Unix.close ctx.stderr_writer;
+          Unix.close ctx.stdin_reader
       | _ -> eval b ctx)
   | Sequence (a, b) ->
       eval a
@@ -200,6 +206,7 @@ let rec eval cmd ctx =
           ctx with
           stdout_writer = Unix.dup ctx.stdout_writer;
           stderr_writer = Unix.dup ctx.stderr_writer;
+          stdin_reader = Unix.dup ctx.stdin_reader
         };
       eval b ctx
   | WriteOutTo (str, cmd) ->
