@@ -318,7 +318,7 @@ let stderr_and_status = Collect_stderr_status
 let everything = Collect_everything
 
 (* Opens a pipe for selected outputs and returns them optionally
- * after executing the command *)
+   after executing the command *)
 let collect_gen ?cwd ?env (sel_stdout, sel_stderr) cmd =
   let f def cond =
     if cond then
@@ -363,7 +363,7 @@ let pack :
   | _ -> failwith "Did not collect the expected outputs"
 
 (* Take an input channel and read everything into a single string *)
-let collect_all' chan =
+let collect_all chan =
   let out = In_channel.input_all chan in
   (* This might be controversial. The alternative is to export a [trim]
      command, that makes it easy to do this manually, but I think this
@@ -376,9 +376,8 @@ let collect ?cwd ?env collection cmd =
     collect_gen ?cwd ?env (selector_switch collection) cmd
   in
   (* Transform collected channels into strings *)
-  let prepare = Option.map ~f:collect_all' in
-  let stdout = prepare stdout_reader in
-  let stderr = prepare stderr_reader in
+  let stdout = Option.map stdout_reader ~f:collect_all in
+  let stderr = Option.map stderr_reader ~f:collect_all in
   (* Pack everything in the GADT type *)
   pack status (stdout, stderr) collection
 
