@@ -635,22 +635,29 @@ hi
       [%expect ""]
 
     let%expect_test "redirection/collection" =
-      let print_status (stdout, stderr) =
-        printf "Stdout:%s\nStderr:%s\n" stdout stderr
+      let print cmd =
+        let stdout, stderr = cmd |> collect stdout_and_stderr in
+        printf "== Stdout ==\n%s\n== Stderr ==\n%s\n" stdout stderr
       in
-      echo "test" |> collect stdout_and_stderr |> print_status;
-      echo "test1" |> stdout_to_stderr &&. echo "test2"
-      |> collect stdout_and_stderr |> print_status;
-      echo "test1" |> stdout_to_stderr &&. echo "test2" |> stderr_to_stdout
-      |> collect stdout_and_stderr |> print_status;
+      echo "test" |> print;
+      [%expect {|
+        == Stdout ==
+        test
+        == Stderr == |}];
+      echo "test1" |> stdout_to_stderr &&. echo "test2" |> print;
       [%expect
         {|
-        Stdout:test
-        Stderr:
-        Stdout:test2
-        Stderr:test1
-        Stdout:test1
+        == Stdout ==
         test2
-        Stderr:
+        == Stderr ==
+        test1 |}];
+      echo "test1" |> stdout_to_stderr &&. echo "test2" |> stderr_to_stdout
+      |> print;
+      [%expect
+        {|
+        == Stdout ==
+        test1
+        test2
+        == Stderr ==
         |}]
   end)
