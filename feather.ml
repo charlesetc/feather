@@ -171,7 +171,7 @@ let rec eval cmd ctx =
           (* Left side of pipe is executed in background *));
       eval b { ctx with stdin_reader = pipe_reader }
   | And (a, b) ->
-      let a_stat =
+      let a_status =
         eval a
           {
             ctx with
@@ -180,14 +180,14 @@ let rec eval cmd ctx =
             stdin_reader = Unix.dup ctx.stdin_reader;
           }
       in
-      if success_status a_stat then eval b ctx
+      if success_status a_status then eval b ctx
       else (
         Unix.close ctx.stdout_writer;
         Unix.close ctx.stderr_writer;
         Unix.close ctx.stdin_reader;
-        a_stat)
+        a_status)
   | Or (a, b) ->
-      let a_stat =
+      let a_status =
         eval a
           {
             ctx with
@@ -196,11 +196,11 @@ let rec eval cmd ctx =
             stdin_reader = Unix.dup ctx.stdin_reader;
           }
       in
-      if success_status a_stat then (
+      if success_status a_status then (
         Unix.close ctx.stdout_writer;
         Unix.close ctx.stderr_writer;
         Unix.close ctx.stdin_reader;
-        a_stat)
+        a_status)
       else eval b ctx
   | Sequence (a, b) ->
       ignore
