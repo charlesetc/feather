@@ -317,18 +317,18 @@ let stderr_and_status = Collect_stderr_status
 
 let everything = Collect_everything
 
-(* Opens a pipe for selected outputs and returns them optionally
-   after executing the command *)
-let collect_gen ?cwd ?env (sel_stdout, sel_stderr) cmd =
-  let f def cond =
-    if cond then
-      let a, b = Unix.pipe () in
-      (Some (Unix.in_channel_of_descr a), b)
-    else (None, Unix.dup def)
-  in
-  let stdout_reader, stdout_writer = f Unix.stdout sel_stdout in
-  let stderr_reader, stderr_writer = f Unix.stderr sel_stderr in
-  let status =
+(* Take a file descriptor and read everything into a single string *)
+let collect_into_string fd =
+  let out = In_channel.input_all (Unix.in_channel_of_descr fd) in
+  (* This might be controversial. The alternative is to export a [trim]
+     command, that makes it easy to do this manually, but I think this
+     is actually less surprising than keeping the newline. *)
+  String.chop_suffix_if_exists out ~suffix:"\n"
+
+(* Launch the command and collect expected channels *)
+let collect (type a) ?cwd ?env (what_to_collect : a what_to_collect) cmd : a =
+  let eval ?(stdout_writer = Unix.dup Unix.stdout)
+      ?(stderr_writer = Unix.dup Unix.stderr) () =
     eval cmd
       {
         stdin_reader = Unix.dup Unix.stdin;
@@ -338,48 +338,43 @@ let collect_gen ?cwd ?env (sel_stdout, sel_stderr) cmd =
         env;
       }
   in
-  (status, stdout_reader, stderr_reader)
 
-(* Should we collect stdout, stderr ? *)
-let selector_switch : type a. a what_to_collect -> bool * bool = function
-  | Collect_status -> (false, false)
-  | Collect_stdout | Collect_stdout_status -> (true, false)
-  | Collect_stderr | Collect_stderr_status -> (false, true)
-  | Collect_stdout_stderr | Collect_everything -> (true, true)
-
-(* Take the collected status and potential stdout/stderr streams, return the
- * expected output of collect *)
-let pack :
-    type a. int -> string option * string option -> a what_to_collect -> a =
- fun status (stdout, stderr) collection ->
-  match (collection, stdout, stderr) with
-  | Collect_status, _, _ -> status
-  | Collect_stdout, Some x, _ -> x
-  | Collect_stdout_status, Some x, _ -> (x, status)
-  | Collect_stderr, _, Some x -> x
-  | Collect_stderr_status, _, Some x -> (x, status)
-  | Collect_stdout_stderr, Some x, Some y -> (x, y)
-  | Collect_everything, Some x, Some y -> (x, y, status)
-  | _ -> failwith "Did not collect the expected outputs"
-
-(* Take an input channel and read everything into a single string *)
-let collect_all chan =
-  let out = In_channel.input_all chan in
-  (* This might be controversial. The alternative is to export a [trim]
-     command, that makes it easy to do this manually, but I think this
-     is actually less surprising than keeping the newline. *)
-  String.chop_suffix_if_exists out ~suffix:"\n"
-
-let collect ?cwd ?env collection cmd =
-  (* Launch the command and collect expected channels *)
-  let status, stdout_reader, stderr_reader =
-    collect_gen ?cwd ?env (selector_switch collection) cmd
-  in
-  (* Transform collected channels into strings *)
-  let stdout = Option.map stdout_reader ~f:collect_all in
-  let stderr = Option.map stderr_reader ~f:collect_all in
-  (* Pack everything in the GADT type *)
-  pack status (stdout, stderr) collection
+  match what_to_collect with
+  | Collect_status -> eval ()
+  | Collect_stdout ->
+      let stdout_reader, stdout_writer = Unix.pipe () in
+      let (_ : int) = eval ~stdout_writer () in
+      let stdout = collect_into_string stdout_reader in
+      stdout
+  | Collect_stderr ->
+      let stderr_reader, stderr_writer = Unix.pipe () in
+      let (_ : int) = eval ~stderr_writer () in
+      let stderr = collect_into_string stderr_reader in
+      stderr
+  | Collect_stdout_status ->
+      let stdout_reader, stdout_writer = Unix.pipe () in
+      let status = eval ~stdout_writer () in
+      let stdout = collect_into_string stdout_reader in
+      (stdout, status)
+  | Collect_stderr_status ->
+      let stderr_reader, stderr_writer = Unix.pipe () in
+      let status = eval ~stderr_writer () in
+      let stderr = collect_into_string stderr_reader in
+      (stderr, status)
+  | Collect_stdout_stderr ->
+      let stdout_reader, stdout_writer = Unix.pipe () in
+      let stderr_reader, stderr_writer = Unix.pipe () in
+      let (_ : int) = eval ~stdout_writer ~stderr_writer () in
+      let stdout = collect_into_string stdout_reader in
+      let stderr = collect_into_string stderr_reader in
+      (stdout, stderr)
+  | Collect_everything ->
+      let stdout_reader, stdout_writer = Unix.pipe () in
+      let stderr_reader, stderr_writer = Unix.pipe () in
+      let status = eval ~stdout_writer ~stderr_writer () in
+      let stdout = collect_into_string stdout_reader in
+      let stderr = collect_into_string stderr_reader in
+      (stdout, stderr, status)
 
 let lines = String.split_lines
 
