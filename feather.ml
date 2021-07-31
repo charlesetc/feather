@@ -304,51 +304,63 @@ let stderr_to_stdout cmd = ErrToOut cmd
 (* === Collection facilities === *)
 
 let status = ColStatus
+
 let stdout = ColStdout
+
 let stderr = ColStderr
+
 let stdout_and_stderr = ColStdoutStderr
+
 let stdout_and_status = ColStdoutStatus
+
 let stderr_and_status = ColStderrStatus
+
 let everything = ColEverything
 
 (* Opens a pipe for selected outputs and returns them optionally
  * after executing the command *)
 let collect_gen ?cwd ?env (sel_stdout, sel_stderr) cmd =
-  let f def cond = if cond then 
+  let f def cond =
+    if cond then
       let a, b = Unix.pipe () in
       (Some (Unix.in_channel_of_descr a), b)
     else (None, Unix.dup def)
   in
   let stdout_reader, stdout_writer = f Unix.stdout sel_stdout in
   let stderr_reader, stderr_writer = f Unix.stderr sel_stderr in
-  let status = eval cmd { stdin_reader = Unix.dup Unix.stdin;
-                          stdout_writer;
-                          stderr_writer;
-                          cwd; env } in
+  let status =
+    eval cmd
+      {
+        stdin_reader = Unix.dup Unix.stdin;
+        stdout_writer;
+        stderr_writer;
+        cwd;
+        env;
+      }
+  in
   (status, stdout_reader, stderr_reader)
 
 (* Should we collect stdout, stderr ? *)
-let selector_switch : type a. a what_to_collect -> (bool * bool) = function
+let selector_switch : type a. a what_to_collect -> bool * bool = function
   | ColStatus -> (false, false)
-  | ColStdout
-  | ColStdoutStatus -> (true, false)
-  | ColStderr
-  | ColStderrStatus -> (false, true)
-  | ColStdoutStderr
-  | ColEverything -> (true, true)
+  | ColStdout | ColStdoutStatus -> (true, false)
+  | ColStderr | ColStderrStatus -> (false, true)
+  | ColStdoutStderr | ColEverything -> (true, true)
 
 (* Take the collected status and potential stdout/stderr streams, return the
  * expected output of collect *)
-let pack : type a. int -> (string option * string option) -> a what_to_collect -> a =
-  fun status (stdout, stderr) collection -> match collection, stdout, stderr with
-    | ColStatus, _, _ -> status
-    | ColStdout, Some x, _ -> x
-    | ColStdoutStatus, Some x, _ -> (x, status)
-    | ColStderr, _, Some x -> x
-    | ColStderrStatus, _, Some x -> (x, status)
-    | ColStdoutStderr, Some x, Some y -> (x, y)
-    | ColEverything, Some x, Some y -> (x, y, status)
-    | _ -> failwith "Did not collect the expected outputs"
+let pack :
+    type a. int -> string option * string option -> a what_to_collect -> a =
+ fun status (stdout, stderr) collection ->
+  match (collection, stdout, stderr) with
+  | ColStatus, _, _ -> status
+  | ColStdout, Some x, _ -> x
+  | ColStdoutStatus, Some x, _ -> (x, status)
+  | ColStderr, _, Some x -> x
+  | ColStderrStatus, _, Some x -> (x, status)
+  | ColStdoutStderr, Some x, Some y -> (x, y)
+  | ColEverything, Some x, Some y -> (x, y, status)
+  | _ -> failwith "Did not collect the expected outputs"
 
 (* Take an input channel and read everything into a single string *)
 let collect_all' chan =
@@ -368,7 +380,7 @@ let collect ?cwd ?env collection cmd =
   let stdout = prepare stdout_reader in
   let stderr = prepare stderr_reader in
   (* Pack everything in the GADT type *)
-  pack status (stdout, stderr) collection 
+  pack status (stdout, stderr) collection
 
 let lines = String.split_lines
 
@@ -379,11 +391,16 @@ let filter_lines ~f = FilterMap (fun a -> if f a then Some a else None)
 let run' ?cwd ?env ~background cmd =
   Caml.flush_all ();
   let go () =
-    eval cmd { stdin_reader = Unix.dup Unix.stdin;
-               stdout_writer = Unix.dup Unix.stdout;
-               stderr_writer = Unix.dup Unix.stderr;
-               cwd; env }
-  in if background then Thread.run go else go () |> ignore
+    eval cmd
+      {
+        stdin_reader = Unix.dup Unix.stdin;
+        stdout_writer = Unix.dup Unix.stdout;
+        stderr_writer = Unix.dup Unix.stderr;
+        cwd;
+        env;
+      }
+  in
+  if background then Thread.run go else go () |> ignore
 
 let run_bg ?cwd ?env = run' ?cwd ?env ~background:true
 
@@ -495,7 +512,9 @@ let tr_d chars = process "tr" [ "-d"; chars ]
 let devnull = "/dev/null"
 
 let fzf ?cwd ?env cmd =
-  let stdout, status = cmd |. process "fzf" [] |> collect ?cwd ?env stdout_and_status in
+  let stdout, status =
+    cmd |. process "fzf" [] |> collect ?cwd ?env stdout_and_status
+  in
   if status = 0 then Some stdout else None
 
 (* === Signals === *)
@@ -622,15 +641,16 @@ hi
       [%expect ""]
 
     let%expect_test "redirection/collection" =
-      let print_stat (stdout, stderr) = 
+      let print_stat (stdout, stderr) =
         printf "Stdout:%s\nStderr:%s\n" stdout stderr
       in
       echo "test" |> collect stdout_and_stderr |> print_stat;
-      (echo "test1" |> stdout_to_stderr) &&. echo "test2" |> collect
-        stdout_and_stderr |> print_stat;
-      (echo "test1" |> stdout_to_stderr) &&. echo "test2" |> stderr_to_stdout |>
-      collect stdout_and_stderr |> print_stat ;
-      [%expect {|
+      echo "test1" |> stdout_to_stderr &&. echo "test2"
+      |> collect stdout_and_stderr |> print_stat;
+      echo "test1" |> stdout_to_stderr &&. echo "test2" |> stderr_to_stdout
+      |> collect stdout_and_stderr |> print_stat;
+      [%expect
+        {|
         Stdout:test
         Stderr:
         Stdout:test2
