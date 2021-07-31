@@ -47,7 +47,8 @@ let () =
 
 let __ () =
   let stderr, status =
-    ls "thisfiledoesnotexists" |> collect stderr_and_status in
+    ls "thisfiledoesnotexists" |> collect stderr_and_status
+  in
   printf "ls returned error code %d: %s\n" status stderr
 
-(* let () = ls "." |> run ~cwd:"_build" *)
+let __ () = ls "." |> run ~cwd:"_build"
