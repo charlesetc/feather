@@ -641,14 +641,14 @@ hi
       [%expect ""]
 
     let%expect_test "redirection/collection" =
-      let print_stat (stdout, stderr) =
+      let print_status (stdout, stderr) =
         printf "Stdout:%s\nStderr:%s\n" stdout stderr
       in
-      echo "test" |> collect stdout_and_stderr |> print_stat;
+      echo "test" |> collect stdout_and_stderr |> print_status;
       echo "test1" |> stdout_to_stderr &&. echo "test2"
-      |> collect stdout_and_stderr |> print_stat;
+      |> collect stdout_and_stderr |> print_status;
       echo "test1" |> stdout_to_stderr &&. echo "test2" |> stderr_to_stdout
-      |> collect stdout_and_stderr |> print_stat;
+      |> collect stdout_and_stderr |> print_status;
       [%expect
         {|
         Stdout:test
