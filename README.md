@@ -202,25 +202,37 @@ which can be parsed directly by OCaml later. No monads in sight!
 As a comparison, say you wanted to count the number of characters from
 "ls" using Shexp:
 
-``` ocaml
-#require "shexp.process";;
-open Shexp_process;;
-let (let+) x f = bind x ~f;;
-
-eval Infix.(
-     call ["ls"]
-  |- let+ s = read_all in
-     printf "%i\n%!" (String.length s)
-);;
+```ocaml
+let (number_of_chars : int Shexp_process.t) =
+  let%map.Shexp_process _, stdout =
+    Shexp_process.run "ls" [] |> Shexp_process.capture [ Stdout ]
+  in
+  String.length stdout
+in
+let length = Shexp_process.eval number_of_chars in
+print_int length
 ```
 
-(I hope that it's more-or-less idiomatic, but am not sure.)
+or another way using `Shexp_process.Infix`:
+
+``` ocaml
+let ( let+ ) x f = Shexp_process.bind x ~f
+
+let () =
+  let open Shexp_process.Infix in
+  eval
+    (Shexp_process.call [ "ls" ]
+    |- let+ s = Shexp_process.read_all in
+       print_int (String.length s))
+```
 
 ...and here is the equivalent Feather:
 
 ``` ocaml
-let length = Feather.process "ls" []
-|> Feather.collect_stdout |> String.length |> print_int
+let length =
+  Feather.process "ls" [] |> Feather.collect_stdout |> String.length
+in
+print_int length
 ```
 
 Overall Feather makes a trade-off of being less featureful while hoping
