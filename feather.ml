@@ -68,13 +68,13 @@ type cmd =
 
 (* GADT type to accomplish dynamic return types for collect *)
 type _ what_to_collect =
-  | Col_status : int what_to_collect
-  | Col_stdout : string what_to_collect
-  | Col_stderr : string what_to_collect
-  | Col_stdout_stderr : (string * string) what_to_collect
-  | Col_stdout_status : (string * int) what_to_collect
-  | Col_stderr_status : (string * int) what_to_collect
-  | Col_everything : (string * string * int) what_to_collect
+  | Collect_status : int what_to_collect
+  | Collect_stdout : string what_to_collect
+  | Collect_stderr : string what_to_collect
+  | Collect_stdout_stderr : (string * string) what_to_collect
+  | Collect_stdout_status : (string * int) what_to_collect
+  | Collect_stderr_status : (string * int) what_to_collect
+  | Collect_everything : (string * string * int) what_to_collect
 
 let resolve_in_path prog =
   (* Do not try to resolve in the path if the program is something like
@@ -303,19 +303,19 @@ let stderr_to_stdout cmd = ErrToOut cmd
 
 (* === Collection facilities === *)
 
-let status = Col_status
+let status = Collect_status
 
-let stdout = Col_stdout
+let stdout = Collect_stdout
 
-let stderr = Col_stderr
+let stderr = Collect_stderr
 
-let stdout_and_stderr = Col_stdout_stderr
+let stdout_and_stderr = Collect_stdout_stderr
 
-let stdout_and_status = Col_stdout_status
+let stdout_and_status = Collect_stdout_status
 
-let stderr_and_status = Col_stderr_status
+let stderr_and_status = Collect_stderr_status
 
-let everything = Col_everything
+let everything = Collect_everything
 
 (* Opens a pipe for selected outputs and returns them optionally
  * after executing the command *)
@@ -342,10 +342,10 @@ let collect_gen ?cwd ?env (sel_stdout, sel_stderr) cmd =
 
 (* Should we collect stdout, stderr ? *)
 let selector_switch : type a. a what_to_collect -> bool * bool = function
-  | Col_status -> (false, false)
-  | Col_stdout | Col_stdout_status -> (true, false)
-  | Col_stderr | Col_stderr_status -> (false, true)
-  | Col_stdout_stderr | Col_everything -> (true, true)
+  | Collect_status -> (false, false)
+  | Collect_stdout | Collect_stdout_status -> (true, false)
+  | Collect_stderr | Collect_stderr_status -> (false, true)
+  | Collect_stdout_stderr | Collect_everything -> (true, true)
 
 (* Take the collected status and potential stdout/stderr streams, return the
  * expected output of collect *)
@@ -353,13 +353,13 @@ let pack :
     type a. int -> string option * string option -> a what_to_collect -> a =
  fun status (stdout, stderr) collection ->
   match (collection, stdout, stderr) with
-  | Col_status, _, _ -> status
-  | Col_stdout, Some x, _ -> x
-  | Col_stdout_status, Some x, _ -> (x, status)
-  | Col_stderr, _, Some x -> x
-  | Col_stderr_status, _, Some x -> (x, status)
-  | Col_stdout_stderr, Some x, Some y -> (x, y)
-  | Col_everything, Some x, Some y -> (x, y, status)
+  | Collect_status, _, _ -> status
+  | Collect_stdout, Some x, _ -> x
+  | Collect_stdout_status, Some x, _ -> (x, status)
+  | Collect_stderr, _, Some x -> x
+  | Collect_stderr_status, _, Some x -> (x, status)
+  | Collect_stdout_stderr, Some x, Some y -> (x, y)
+  | Collect_everything, Some x, Some y -> (x, y, status)
   | _ -> failwith "Did not collect the expected outputs"
 
 (* Take an input channel and read everything into a single string *)
