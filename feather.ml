@@ -143,7 +143,7 @@ let exec prog args ctx =
     Spawn.spawn ~cwd ?env ~stdin:ctx.stdin_reader ~stdout:ctx.stdout_writer
       ~stderr:ctx.stderr_writer ~prog ~argv ()
   in
-  let stat =
+  let status =
     match snd (Unix.waitpid [] pid) with
     | WEXITED s -> s
     | WSIGNALED s | WSTOPPED s -> 128 + s
@@ -152,7 +152,7 @@ let exec prog args ctx =
   Unix.close ctx.stdout_writer;
   Unix.close ctx.stderr_writer;
   Unix.close ctx.stdin_reader;
-  stat
+  status
 
 let success_status x = x = 0
 
@@ -338,8 +338,8 @@ let run' ?cwd ?env ~background cmd =
   in
   if background then Thread.run go
   else
-    let stat = go () in
-    State.exit := stat
+    let status = go () in
+    State.exit := status
 
 let run_bg ?cwd ?env = run' ?cwd ?env ~background:true
 
