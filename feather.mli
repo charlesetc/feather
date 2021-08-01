@@ -108,10 +108,12 @@ type 'a what_to_collect
 val stdout : string what_to_collect
 val stderr : string what_to_collect
 val status : int what_to_collect
-val everything : (string * string * int) what_to_collect
 val stdout_and_stderr : (string * string) what_to_collect
 val stdout_and_status : (string * int) what_to_collect
 val stderr_and_status : (string * int) what_to_collect
+
+type everything = { stdout : string ; stderr : string ; status : int }
+val everything : everything what_to_collect
 
 (** Various collection possibilities, to be used with {!collect} *)
 

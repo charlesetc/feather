@@ -67,6 +67,7 @@ type cmd =
   | FilterMap of (string -> string option)
 
 (* GADT type to accomplish dynamic return types for collect *)
+type everything = { stdout : string ; stderr : string ; status : int }
 type _ what_to_collect =
   | Collect_status : int what_to_collect
   | Collect_stdout : string what_to_collect
@@ -74,7 +75,7 @@ type _ what_to_collect =
   | Collect_stdout_stderr : (string * string) what_to_collect
   | Collect_stdout_status : (string * int) what_to_collect
   | Collect_stderr_status : (string * int) what_to_collect
-  | Collect_everything : (string * string * int) what_to_collect
+  | Collect_everything : everything what_to_collect
 
 let resolve_in_path prog =
   (* Do not try to resolve in the path if the program is something like
@@ -374,7 +375,7 @@ let collect (type a) ?cwd ?env (what_to_collect : a what_to_collect) cmd : a =
       let status = eval ~stdout_writer ~stderr_writer () in
       let stdout = collect_into_string stdout_reader in
       let stderr = collect_into_string stderr_reader in
-      (stdout, stderr, status)
+      {status; stdout; stderr}
 
 let lines = String.split_lines
 
