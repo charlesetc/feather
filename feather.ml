@@ -65,7 +65,7 @@ type cmd =
   | Read_in_from of string * cmd
   | Out_to_err of cmd
   | Err_to_out of cmd
-  | Filter_map of (string -> string option)
+  | Filter_mapi of (string -> int -> string option)
 
 (* GADT type to accomplish dynamic return types for collect *)
 type everything = { stdout : string; stderr : string; status : int }
@@ -115,9 +115,10 @@ let fd_iter_lines ~f fd =
   with End_of_file ->
     if List.length !line <> 0 then f (String.of_char_list (List.rev !line))
 
-let filter_map ~f ctx =
+let filter_mapi ~f ctx =
+  let count = ref 0 in
   fd_iter_lines ctx.stdin_reader ~f:(fun line ->
-      match f line with
+      (match f line !count with
       | Some out ->
           let buf = Bytes.of_string out in
           let (_ : int) =
@@ -128,6 +129,7 @@ let filter_map ~f ctx =
           in
           ()
       | None -> ());
+      Int.incr count);
   Unix.close ctx.stdout_writer
 
 let exec prog args ctx =
@@ -265,8 +267,8 @@ let rec eval cmd ctx =
       Unix.close ctx.stderr_writer;
       let stderr_writer = Unix.dup ctx.stdout_writer in
       eval cmd { ctx with stderr_writer }
-  | Filter_map f ->
-      filter_map ~f ctx;
+  | Filter_mapi f ->
+      filter_mapi ~f ctx;
       0
 
 let process name args = Process (name, args)
@@ -390,9 +392,18 @@ let collect (type a) ?cwd ?env (what_to_collect : a what_to_collect) cmd : a =
 
 let lines = String.split_lines
 
-let map_lines ~f = Filter_map (fun a -> Some (f a))
+let filter_mapi_lines ~f = Filter_mapi f
 
-let filter_lines ~f = Filter_map (fun a -> if f a then Some a else None)
+let filter_map_lines ~f = filter_mapi_lines ~f:(fun a _ -> f a)
+
+let filteri_lines ~f =
+  filter_mapi_lines ~f:(fun a i -> if f a i then Some a else None)
+
+let filter_lines ~f = filteri_lines ~f:(fun a _ -> f a)
+
+let mapi_lines ~f = filter_mapi_lines ~f:(fun a i -> Some (f a i))
+
+let map_lines ~f = mapi_lines ~f:(fun a _ -> f a)
 
 let run' ?cwd ?env ~background cmd =
   Caml.flush_all ();

@@ -95,9 +95,18 @@ val sequence : cmd -> cmd -> cmd
 (** [ sequence ] is feather's version of a ";" in bash. See Infix module for more. *)
 
 val map_lines : f:(string -> string) -> cmd
+(** [map_lines] within a sequence of pipes will be run with a thread.
+    Same goes for [filter_lines], [mapi_lines], etc. *)
 
 val filter_lines : f:(string -> bool) -> cmd
-(** [map] within a series of pipes will be run in a thread.  *)
+
+val mapi_lines : f:(string -> int -> string) -> cmd
+
+val filteri_lines : f:(string -> int -> bool) -> cmd
+
+val filter_map_lines : f:(string -> string option) -> cmd
+
+val filter_mapi_lines : f:(string -> int -> string option) -> cmd
 
 val lines : string -> string list
 (** Transforms a string into the list of its lines *)
