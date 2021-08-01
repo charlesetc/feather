@@ -189,6 +189,8 @@ val stderr_to_stdout : cmd -> cmd
 
 (* === Misc === *)
 
+val of_list : string list -> cmd
+
 val devnull : string
 (** [devnull] is easier to type than "/dev/null" *)
 

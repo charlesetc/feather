@@ -53,6 +53,7 @@ type context = {
 
 type cmd =
   | Process of string * string list
+  | Of_list of string list
   | Pipe of cmd * cmd
   | And of cmd * cmd
   | Or of cmd * cmd
@@ -164,11 +165,20 @@ let exec prog args ctx =
   Unix.close ctx.stderr_writer;
   status
 
-let success_status x = x = 0
+let success_status = 0
+
+let exec_list list ctx =
+  let stdout_channel = Unix.out_channel_of_descr ctx.stdout_writer in
+  Out_channel.output_lines stdout_channel list;
+  Unix.close ctx.stdin_reader;
+  Out_channel.close stdout_channel;
+  Unix.close ctx.stderr_writer;
+  success_status
 
 let rec eval cmd ctx =
   match cmd with
   | Process (name, args) -> exec name args ctx
+  | Of_list list -> exec_list list ctx
   | Pipe (a, b) ->
       let pipe_reader, pipe_writer = Spawn.safe_pipe () in
       Thread.run (fun () ->
@@ -190,7 +200,7 @@ let rec eval cmd ctx =
             stdin_reader = Unix.dup ctx.stdin_reader;
           }
       in
-      if success_status a_status then eval b ctx
+      if a_status = success_status then eval b ctx
       else (
         Unix.close ctx.stdout_writer;
         Unix.close ctx.stderr_writer;
@@ -206,7 +216,7 @@ let rec eval cmd ctx =
             stdin_reader = Unix.dup ctx.stdin_reader;
           }
       in
-      if success_status a_status then (
+      if a_status = success_status then (
         Unix.close ctx.stdout_writer;
         Unix.close ctx.stderr_writer;
         Unix.close ctx.stdin_reader;
@@ -505,6 +515,8 @@ let tr_d chars = process "tr" [ "-d"; chars ]
 
 (* === Misc === *)
 
+let of_list l = Of_list l
+
 let devnull = "/dev/null"
 
 let fzf ?cwd ?env cmd =
@@ -662,4 +674,11 @@ hi
         test2
         == Stderr ==
         |}]
+
+    let%expect_test "of_list" =
+      of_list [ "one"; "two"; "three" ] |. sort |> print;
+      [%expect {|
+        one
+        three
+        two |}]
   end)

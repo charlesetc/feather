@@ -264,8 +264,3 @@ print_int length
 
 Overall Feather makes a trade-off of being less featureful while hoping
 to improve ergonomics.
-
-## Features coming soon
-
--   forwarding kill signals from the parent process to its children
--   make a Feather.cmd from a list of strings
