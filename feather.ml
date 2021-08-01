@@ -57,14 +57,14 @@ type cmd =
   | And of cmd * cmd
   | Or of cmd * cmd
   | Sequence of cmd * cmd
-  | WriteOutTo of string * cmd
-  | AppendOutTo of string * cmd
-  | WriteErrTo of string * cmd
-  | AppendErrTo of string * cmd
-  | ReadInFrom of string * cmd
-  | OutToErr of cmd
-  | ErrToOut of cmd
-  | FilterMap of (string -> string option)
+  | Write_out_to of string * cmd
+  | Append_out_to of string * cmd
+  | Write_err_to of string * cmd
+  | Append_err_to of string * cmd
+  | Read_in_from of string * cmd
+  | Out_to_err of cmd
+  | Err_to_out of cmd
+  | Filter_map of (string -> string option)
 
 (* GADT type to accomplish dynamic return types for collect *)
 type everything = { stdout : string; stderr : string; status : int }
@@ -222,40 +222,40 @@ let rec eval cmd ctx =
              stdin_reader = Unix.dup ctx.stdin_reader;
            });
       eval b ctx
-  | WriteOutTo (str, cmd) ->
+  | Write_out_to (str, cmd) ->
       Unix.close ctx.stdout_writer;
       let stdout_writer =
         Unix.openfile str [ O_WRONLY; O_TRUNC; O_CREAT ] 0o644
       in
       eval cmd { ctx with stdout_writer }
-  | AppendOutTo (str, cmd) ->
+  | Append_out_to (str, cmd) ->
       Unix.close ctx.stdout_writer;
       let stdout_writer =
         Unix.openfile str [ O_WRONLY; O_APPEND; O_CREAT ] 0o644
       in
       eval cmd { ctx with stdout_writer }
-  | WriteErrTo (str, cmd) ->
+  | Write_err_to (str, cmd) ->
       let stderr_writer =
         Unix.openfile str [ O_WRONLY; O_TRUNC; O_CREAT ] 0o644
       in
       eval cmd { ctx with stderr_writer }
-  | AppendErrTo (str, cmd) ->
+  | Append_err_to (str, cmd) ->
       let stderr_writer =
         Unix.openfile str [ O_WRONLY; O_APPEND; O_CREAT ] 0o644
       in
       eval cmd { ctx with stderr_writer }
-  | ReadInFrom (str, cmd) ->
+  | Read_in_from (str, cmd) ->
       let stdin_reader = Unix.openfile str [ O_RDONLY ] 0 in
       eval cmd { ctx with stdin_reader }
-  | OutToErr cmd ->
+  | Out_to_err cmd ->
       Unix.close ctx.stdout_writer;
       let stdout_writer = Unix.dup ctx.stderr_writer in
       eval cmd { ctx with stdout_writer }
-  | ErrToOut cmd ->
+  | Err_to_out cmd ->
       Unix.close ctx.stderr_writer;
       let stderr_writer = Unix.dup ctx.stdout_writer in
       eval cmd { ctx with stderr_writer }
-  | FilterMap f ->
+  | Filter_map f ->
       filter_map ~f ctx;
       0
 
@@ -271,15 +271,15 @@ let sequence a b = Sequence (a, b)
 
 (* Redirection *)
 
-let write_stdout_to str cmd = WriteOutTo (str, cmd)
+let write_stdout_to str cmd = Write_out_to (str, cmd)
 
-let append_stdout_to str cmd = AppendOutTo (str, cmd)
+let append_stdout_to str cmd = Append_out_to (str, cmd)
 
-let write_stderr_to str cmd = WriteErrTo (str, cmd)
+let write_stderr_to str cmd = Write_err_to (str, cmd)
 
-let append_stderr_to str cmd = AppendErrTo (str, cmd)
+let append_stderr_to str cmd = Append_err_to (str, cmd)
 
-let read_stdin_from str cmd = ReadInFrom (str, cmd)
+let read_stdin_from str cmd = Read_in_from (str, cmd)
 
 module Infix = struct
   let ( &&. ) = and_
@@ -299,9 +299,9 @@ module Infix = struct
   let ( < ) cmd str = read_stdin_from str cmd
 end
 
-let stdout_to_stderr cmd = OutToErr cmd
+let stdout_to_stderr cmd = Out_to_err cmd
 
-let stderr_to_stdout cmd = ErrToOut cmd
+let stderr_to_stdout cmd = Err_to_out cmd
 
 (* === Collection facilities === *)
 
@@ -380,9 +380,9 @@ let collect (type a) ?cwd ?env (what_to_collect : a what_to_collect) cmd : a =
 
 let lines = String.split_lines
 
-let map_lines ~f = FilterMap (fun a -> Some (f a))
+let map_lines ~f = Filter_map (fun a -> Some (f a))
 
-let filter_lines ~f = FilterMap (fun a -> if f a then Some a else None)
+let filter_lines ~f = Filter_map (fun a -> if f a then Some a else None)
 
 let run' ?cwd ?env ~background cmd =
   Caml.flush_all ();
