@@ -27,7 +27,7 @@ let __ () =
 
   ls "/tmp" |. grep "output" |> run
 
-let () =
+let __ () =
   let open Core in
   echo "count hour" |> run;
   echo "----- ----" |> run;
@@ -52,3 +52,11 @@ let __ () =
   printf "ls returned error code %d: %s\n" status stderr
 
 let __ () = ls "." |> run ~cwd:"_build"
+
+let () =
+  let stdout, stderr =
+    (Feather.of_list [ "wow"; "hi" ] |> stdout_to_stderr) ->. echo "hi there"
+    |> collect stdout_and_stderr
+  in
+  printf "*** %s ***\n" stderr;
+  print_endline stdout
