@@ -106,24 +106,31 @@ type 'a what_to_collect
 (** The type that determines what should be returned by {!collect} *)
 
 val stdout : string what_to_collect
+
 val stderr : string what_to_collect
+
 val status : int what_to_collect
+
 val stdout_and_stderr : (string * string) what_to_collect
+
 val stdout_and_status : (string * int) what_to_collect
+
 val stderr_and_status : (string * int) what_to_collect
 
-type everything = { stdout : string ; stderr : string ; status : int }
+type everything = { stdout : string; stderr : string; status : int }
+
 val everything : everything what_to_collect
 
 (** Various collection possibilities, to be used with {!collect} *)
 
-val collect : ?cwd:string -> ?env:(string * string) list ->
-  'a what_to_collect -> cmd -> 'a
+val collect :
+  ?cwd:string -> ?env:(string * string) list -> 'a what_to_collect -> cmd -> 'a
 (** [ collect col cmd ] runs [cmd], collecting the outputs specified by [col]
     along the way and returning them. The return type depends on what is
     collected. *)
 
 val run : ?cwd:string -> ?env:(string * string) list -> cmd -> unit
+
 val run_bg : ?cwd:string -> ?env:(string * string) list -> cmd -> unit
 (** Run a command in foreground or background without capturing anything.
 The exit status is lost. *)
