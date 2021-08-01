@@ -53,10 +53,15 @@ let __ () =
 
 let __ () = ls "." |> run ~cwd:"_build"
 
-let () =
+let __ () =
   let stdout, stderr =
     (Feather.of_list [ "wow"; "hi" ] |> stdout_to_stderr) ->. echo "hi there"
     |> collect stdout_and_stderr
   in
   printf "*** %s ***\n" stderr;
   print_endline stdout
+
+let __ () =
+  Feather.of_list [ "duck"; "goose"; "duck" ]
+  |. Feather.map_lines ~f:(fun s -> "*** " ^ s)
+  |. sort |> collect stdout |> lines |> List.iter ~f:print_endline
