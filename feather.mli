@@ -139,13 +139,28 @@ val collect :
     collected. *)
 
 val run : ?cwd:string -> ?env:(string * string) list -> cmd -> unit
+(** Run a command without collecting anything *)
 
-val run_bg : ?cwd:string -> ?env:(string * string) list -> cmd -> unit
-(** Run a command in foreground or background without capturing anything.
-The exit status is lost. *)
+type 'a background_process
 
-(** Run the process in a thread. Use [wait] to ensure that the parent
- won't exit, subsequently killing the background process. *)
+val collect_in_background :
+  ?cwd:string ->
+  ?env:(string * string) list ->
+  'a what_to_collect ->
+  cmd ->
+  'a background_process
+(** [collect_in_background] and [run_in_background] run the command in a thread.
+
+    Use [wait] to wait for the process to finish (and retreive whatever you collected). *)
+
+val run_in_background :
+  ?cwd:string -> ?env:(string * string) list -> cmd -> unit background_process
+
+val wait : 'a background_process -> 'a
+(** [wait] for the result of [run_in_background] or [collect_in_background]. *)
+
+val wait_all : unit -> unit
+(** Wait for all processes started in the background. *)
 
 (* Redirection *)
 

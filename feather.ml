@@ -33,15 +33,59 @@ module Thread = struct
     ()
 end
 
-module State = struct
+module Mutex = struct
+  include Mutex
+
+  let with_lock m f =
+    Mutex.lock m;
+    Exn.protect ~f ~finally:(fun () -> Mutex.unlock m)
+end
+
+module Background_process = struct
+  type 'a t = {
+    mutable result : 'a option;
+    condition : Condition.t;
+    mutex : Mutex.t;
+  }
+
+  let create () =
+    { condition = Condition.create (); mutex = Mutex.create (); result = None }
+
+  type packed = T : _ t -> packed
+
+  let pack t = T t
+end
+
+type 'a background_process = 'a Background_process.t
+
+module State : sig
+  val pid : int
+
+  val new_background_process : unit -> 'a Background_process.t
+
+  val all_background_processes : unit -> Background_process.packed list
+end = struct
   let pid = Unix.getpid ()
+
+  (* Not sure if this mutex is helpful but better safe than sorry?  *)
+  let background_process_mutex = Mutex.create ()
+
+  let background_processes : Background_process.packed list ref = ref []
+
+  let new_background_process () =
+    Mutex.with_lock background_process_mutex (fun () ->
+        let process = Background_process.create () in
+        background_processes :=
+          Background_process.pack process :: !background_processes;
+        process)
+
+  let all_background_processes () =
+    Mutex.with_lock background_process_mutex (fun () -> !background_processes)
 end
 
 let debug = ref false
 
 type env = (string * string) list
-
-(* TODO: implement [wait] *)
 
 type context = {
   stdin_reader : Unix.file_descr;
@@ -66,6 +110,7 @@ type cmd =
   | Out_to_err of cmd
   | Err_to_out of cmd
   | Filter_mapi of (string -> int -> string option)
+[@@deriving sexp]
 
 (* GADT type to accomplish dynamic return types for collect *)
 type everything = { stdout : string; stderr : string; status : int }
@@ -156,6 +201,7 @@ let exec prog args ctx =
     Spawn.spawn ~cwd ?env ~stdin:ctx.stdin_reader ~stdout:ctx.stdout_writer
       ~stderr:ctx.stderr_writer ~prog ~argv ()
   in
+  (* Wait for process and return its status  *)
   let status =
     match snd (Unix.waitpid [] pid) with
     | WEXITED s -> s
@@ -178,19 +224,25 @@ let exec_list list ctx =
   success_status
 
 let rec eval cmd ctx =
+  (* This can be useful for debugging feather evaluation *)
+  (* eprintf "-- %s\n" (Sexp.to_string_hum (sexp_of_cmd cmd)); *)
+  (* Out_channel.flush stdout; *)
   match cmd with
   | Process (name, args) -> exec name args ctx
   | Of_list list -> exec_list list ctx
   | Pipe (a, b) ->
       let pipe_reader, pipe_writer = Spawn.safe_pipe () in
       Thread.run (fun () ->
-          eval a
-            {
-              ctx with
-              stdout_writer = pipe_writer;
-              stderr_writer = Unix.dup ctx.stderr_writer;
-            }
-          (* Left side of pipe is executed in background *));
+          (* Waiting on this closes the file handles. *)
+          let _status =
+            eval a
+              {
+                ctx with
+                stdout_writer = pipe_writer;
+                stderr_writer = Unix.dup ctx.stderr_writer;
+              }
+          in
+          ());
       eval b { ctx with stdin_reader = pipe_reader }
   | And (a, b) ->
       let a_status =
@@ -225,14 +277,15 @@ let rec eval cmd ctx =
         a_status)
       else eval b ctx
   | Sequence (a, b) ->
-      ignore
-        (eval a
-           {
-             ctx with
-             stdout_writer = Unix.dup ctx.stdout_writer;
-             stderr_writer = Unix.dup ctx.stderr_writer;
-             stdin_reader = Unix.dup ctx.stdin_reader;
-           });
+      let (_status : int) =
+        eval a
+          {
+            ctx with
+            stdout_writer = Unix.dup ctx.stdout_writer;
+            stderr_writer = Unix.dup ctx.stderr_writer;
+            stdin_reader = Unix.dup ctx.stdin_reader;
+          }
+      in
       eval b ctx
   | Write_out_to (str, cmd) ->
       Unix.close ctx.stdout_writer;
@@ -405,23 +458,52 @@ let mapi_lines ~f = filter_mapi_lines ~f:(fun a i -> Some (f a i))
 
 let map_lines ~f = mapi_lines ~f:(fun a _ -> f a)
 
-let run' ?cwd ?env ~background cmd =
+let run' ?cwd ?env cmd =
   Caml.flush_all ();
-  let go () =
-    eval cmd
-      {
-        stdin_reader = Unix.dup Unix.stdin;
-        stdout_writer = Unix.dup Unix.stdout;
-        stderr_writer = Unix.dup Unix.stderr;
-        cwd;
-        env;
-      }
-  in
-  if background then Thread.run go else go () |> ignore
+  eval cmd
+    {
+      stdin_reader = Unix.dup Unix.stdin;
+      stdout_writer = Unix.dup Unix.stdout;
+      stderr_writer = Unix.dup Unix.stderr;
+      cwd;
+      env;
+    }
 
-let run_bg ?cwd ?env = run' ?cwd ?env ~background:true
+let run_in_background ?cwd ?env cmd =
+  let process = State.new_background_process () in
+  Thread.run (fun () ->
+      let (_status : int) = run' ?cwd ?env cmd in
+      Mutex.with_lock process.mutex (fun () ->
+          process.result <- Some ();
+          Condition.broadcast process.condition));
+  process
 
-let run ?cwd ?env = run' ?cwd ?env ~background:false
+let collect_in_background ?cwd ?env what_to_collect cmd =
+  let process = State.new_background_process () in
+  Thread.run (fun () ->
+      let result = collect ?cwd ?env what_to_collect cmd in
+      Mutex.with_lock process.mutex (fun () ->
+          process.result <- Some result;
+          Condition.broadcast process.condition));
+  process
+
+let wait (process : 'a Background_process.t) =
+  Mutex.with_lock process.mutex (fun () ->
+      match process.result with
+      | Some a -> a
+      | None ->
+          Condition.wait process.condition process.mutex;
+          Option.value_exn process.result)
+
+let wait_all () =
+  State.all_background_processes ()
+  |> List.iter ~f:(function Background_process.T process ->
+         let _ = wait process in
+         ())
+
+let run ?cwd ?env cmd =
+  let (_status : int) = run' ?cwd ?env cmd in
+  ()
 
 (* === Common Unix commands === *)
 let ls s = process "ls" [ s ]

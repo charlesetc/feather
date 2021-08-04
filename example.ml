@@ -65,3 +65,63 @@ let __ () =
   Feather.of_list [ "duck"; "goose"; "duck" ]
   |. Feather.map_lines ~f:(fun s -> "*** " ^ s)
   |. sort |> collect stdout |> lines |> List.iter ~f:print_endline
+
+let __ () =
+  let process =
+    process "bash" [ "-c"; "for i in `seq 1 5` ; do echo $i ; sleep 1 ; done" ]
+    |> run_in_background
+  in
+  ignore process
+
+let __ () =
+  let p1 =
+    process "bash"
+      [ "-c"; "for i in `seq 1 5` ; do echo a $i ; sleep 1 ; done" ]
+    |> run_in_background
+  in
+  let _ =
+    Thread.create
+      (fun () ->
+        Feather.wait p1;
+        print_endline "p1 done")
+      ()
+  in
+  Unix.sleep 1;
+  let p2 =
+    process "bash"
+      [ "-c"; "for i in `seq 6 10` ; do echo b $i ; sleep 1 ; done" ]
+    |> run_in_background
+  in
+  let _ =
+    Thread.create
+      (fun () ->
+        Feather.wait p2;
+        print_endline "p2 done")
+      ()
+  in
+  print_endline "main 98";
+  Unix.sleep 2;
+  print_endline "main 99";
+  Feather.wait p1;
+  Feather.wait p2;
+  print_endline "main 100";
+  Feather.wait p1
+
+let __ () =
+  for i = 1 to 10 do
+    process "bash" [ "-c"; [%string "sleep %{i#Int} ; echo %{i#Int}"] ]
+    |> run_in_background |> ignore
+  done;
+  Feather.wait_all ();
+  print_endline "done"
+
+let () =
+  let p1 =
+    process "echo" [ "test" ] |> collect_in_background stdout_and_status
+  in
+  print_endline "waiting now";
+  let stdout, status = Feather.wait p1 in
+  print_endline "==== stdout ====";
+  print_endline stdout;
+  print_endline "==== status ====";
+  printf "%d\n" status
