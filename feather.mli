@@ -1,14 +1,144 @@
 open Base
 
+(* === Creating and combining Feather commands === *)
+
 type cmd
 
 val process : string -> string list -> cmd
-(** [process] constructs a new command *)
+(** [process] constructs a new [cmd] that can be run with [run] or [collect]  *)
 
 val ( |. ) : cmd -> cmd -> cmd
-(** [ |. ] is feather's version of a "|" in bash. *)
+(** [ |. ] is Feather's version of a "|" in bash; pipe the first process's
+    stdout to the next's stdin. *)
 
-(* === Basic commands === *)
+val and_ : cmd -> cmd -> cmd
+(** [ and_ ] is feather's version of a "&&" in bash. See Infix module for more. *)
+
+val or_ : cmd -> cmd -> cmd
+(** [ or_ ] is feather's version of a "||" in bash. See Infix module for more. *)
+
+val sequence : cmd -> cmd -> cmd
+(** [ sequence ] is feather's version of a ";" in bash. See Infix module for more. *)
+
+(* === Running Feather commands === *)
+
+val run : ?cwd:string -> ?env:(string * string) list -> cmd -> unit
+(** Run a command without collecting anything *)
+
+type 'a what_to_collect
+(** The type that determines what should be returned by {!collect} *)
+
+(** Various collection possibilities, to be used with {!collect} *)
+
+val stdout : string what_to_collect
+
+val stderr : string what_to_collect
+
+val status : int what_to_collect
+
+val stdout_and_stderr : (string * string) what_to_collect
+
+val stdout_and_status : (string * int) what_to_collect
+
+val stderr_and_status : (string * int) what_to_collect
+
+type everything = { stdout : string; stderr : string; status : int }
+
+val everything : everything what_to_collect
+
+val collect :
+  ?cwd:string -> ?env:(string * string) list -> 'a what_to_collect -> cmd -> 'a
+(** [ collect col cmd ] runs [cmd], collecting the outputs specified by [col]
+    along the way and returning them. The return type depends on what is
+    collected. *)
+
+type 'a background_process
+
+val run_in_background :
+  ?cwd:string -> ?env:(string * string) list -> cmd -> unit background_process
+
+val collect_in_background :
+  ?cwd:string ->
+  ?env:(string * string) list ->
+  'a what_to_collect ->
+  cmd ->
+  'a background_process
+(** [collect_in_background] and [run_in_background] run the command in a thread.
+
+    Use [wait] to wait for the process to finish (and retreive whatever you collected). *)
+
+val wait : 'a background_process -> 'a
+(** [wait] for the result of [run_in_background] or [collect_in_background]. *)
+
+val wait_all : unit -> unit
+(** Wait for all processes started in the background. *)
+
+(* === Commands to insert OCaml within a Feather pipeline === *)
+
+val map_lines : f:(string -> string) -> cmd
+(** [map_lines] within a sequence of pipes will be run with a thread.
+    Same goes for [filter_lines], [mapi_lines], etc. *)
+
+val filter_lines : f:(string -> bool) -> cmd
+
+val mapi_lines : f:(string -> int -> string) -> cmd
+
+val filteri_lines : f:(string -> int -> bool) -> cmd
+
+val filter_map_lines : f:(string -> string option) -> cmd
+
+val filter_mapi_lines : f:(string -> int -> string option) -> cmd
+
+(* === File redirection === *)
+
+val write_stdout_to : string -> cmd -> cmd
+
+val append_stdout_to : string -> cmd -> cmd
+
+val write_stderr_to : string -> cmd -> cmd
+
+val append_stderr_to : string -> cmd -> cmd
+
+val read_stdin_from : string -> cmd -> cmd
+
+val stdout_to_stderr : cmd -> cmd
+
+val stderr_to_stdout : cmd -> cmd
+(** [stdout_to_stderr] and [stderr_to_stdout] are NOT composable!
+    Think of these functions as each creating a new command with the given redirection.
+
+    Applying both will result in no output to either stdout or stderr.
+    [flip_stdout_and_stderr] should be easy to write if anyone should need it. *)
+
+module Infix : sig
+  val ( > ) : cmd -> string -> cmd
+  (** Redirect Stdout *)
+
+  val ( >> ) : cmd -> string -> cmd
+
+  val ( >! ) : cmd -> string -> cmd
+  (** Redirect Stderr *)
+
+  val ( >>! ) : cmd -> string -> cmd
+
+  val ( < ) : cmd -> string -> cmd
+  (** Read file from stdin *)
+
+  val ( &&. ) : cmd -> cmd -> cmd
+  (** Same as [and_] *)
+
+  val ( ||. ) : cmd -> cmd -> cmd
+  (** Same as [or_] *)
+
+  val ( ->. ) : cmd -> cmd -> cmd
+  (** Same as [sequence]
+
+      [->.] binds more tightly than [|.] so parentheses should be used when
+      chaining the two.
+  *)
+end
+
+(* === Built-in commands === *)
 
 val ls : string -> cmd
 
@@ -83,137 +213,14 @@ val tr : string -> string -> cmd
 
 val tr_d : string -> cmd
 
-(* === Using [cmd]'s in OCaml === *)
-
-val and_ : cmd -> cmd -> cmd
-(** [ and_ ] is feather's version of a "&&" in bash. See Infix module for more. *)
-
-val or_ : cmd -> cmd -> cmd
-(** [ or_ ] is feather's version of a "||" in bash. See Infix module for more. *)
-
-val sequence : cmd -> cmd -> cmd
-(** [ sequence ] is feather's version of a ";" in bash. See Infix module for more. *)
-
-val map_lines : f:(string -> string) -> cmd
-(** [map_lines] within a sequence of pipes will be run with a thread.
-    Same goes for [filter_lines], [mapi_lines], etc. *)
-
-val filter_lines : f:(string -> bool) -> cmd
-
-val mapi_lines : f:(string -> int -> string) -> cmd
-
-val filteri_lines : f:(string -> int -> bool) -> cmd
-
-val filter_map_lines : f:(string -> string option) -> cmd
-
-val filter_mapi_lines : f:(string -> int -> string option) -> cmd
-
-val lines : string -> string list
-(** Transforms a string into the list of its lines *)
-
-type 'a what_to_collect
-(** The type that determines what should be returned by {!collect} *)
-
-val stdout : string what_to_collect
-
-val stderr : string what_to_collect
-
-val status : int what_to_collect
-
-val stdout_and_stderr : (string * string) what_to_collect
-
-val stdout_and_status : (string * int) what_to_collect
-
-val stderr_and_status : (string * int) what_to_collect
-
-type everything = { stdout : string; stderr : string; status : int }
-
-val everything : everything what_to_collect
-
-(** Various collection possibilities, to be used with {!collect} *)
-
-val collect :
-  ?cwd:string -> ?env:(string * string) list -> 'a what_to_collect -> cmd -> 'a
-(** [ collect col cmd ] runs [cmd], collecting the outputs specified by [col]
-    along the way and returning them. The return type depends on what is
-    collected. *)
-
-val run : ?cwd:string -> ?env:(string * string) list -> cmd -> unit
-(** Run a command without collecting anything *)
-
-type 'a background_process
-
-val collect_in_background :
-  ?cwd:string ->
-  ?env:(string * string) list ->
-  'a what_to_collect ->
-  cmd ->
-  'a background_process
-(** [collect_in_background] and [run_in_background] run the command in a thread.
-
-    Use [wait] to wait for the process to finish (and retreive whatever you collected). *)
-
-val run_in_background :
-  ?cwd:string -> ?env:(string * string) list -> cmd -> unit background_process
-
-val wait : 'a background_process -> 'a
-(** [wait] for the result of [run_in_background] or [collect_in_background]. *)
-
-val wait_all : unit -> unit
-(** Wait for all processes started in the background. *)
-
-(* Redirection *)
-
-val write_stdout_to : string -> cmd -> cmd
-
-val append_stdout_to : string -> cmd -> cmd
-
-val write_stderr_to : string -> cmd -> cmd
-
-val append_stderr_to : string -> cmd -> cmd
-
-val read_stdin_from : string -> cmd -> cmd
-
-module Infix : sig
-  val ( &&. ) : cmd -> cmd -> cmd
-  (** Same as [and_] *)
-
-  val ( ||. ) : cmd -> cmd -> cmd
-  (** Same as [or_] *)
-
-  val ( ->. ) : cmd -> cmd -> cmd
-  (** Same as [sequence]
-
-      [->.] binds more tightly than [|.] so parentheses should be used when
-      chaining the two.
-  *)
-
-  val ( > ) : cmd -> string -> cmd
-  (** Redirect Stdout *)
-
-  val ( >> ) : cmd -> string -> cmd
-
-  val ( >! ) : cmd -> string -> cmd
-  (** Redirect Stderr *)
-
-  val ( >>! ) : cmd -> string -> cmd
-
-  val ( < ) : cmd -> string -> cmd
-  (** Read file from stdin *)
-end
-
-val stdout_to_stderr : cmd -> cmd
-
-val stderr_to_stdout : cmd -> cmd
-(** [stdout_to_stderr] and [stderr_to_stdout] are NOT composable!
-    Think of these functions as each creating a new command with the given redirection.
-
-    Applying both will result in no output to either stdout or stderr.
-    [flip_stdout_and_stderr] should be easy to write if anyone should need it. *)
-
 (* === Misc === *)
 
 val of_list : string list -> cmd
+(** [of_list] emulates a Feather.cmd, each item in the list becomes a line on
+    stdout. *)
+
+val lines : string -> string list
+(** [lines] splits a string into the list of its lines *)
 
 val devnull : string
 (** [devnull] is easier to type than "/dev/null" *)
