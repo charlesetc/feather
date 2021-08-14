@@ -38,9 +38,9 @@ the output. To run a command without capturing any output, simply use
 val run : ?cwd:string -> ?env:(string * string) list -> cmd -> unit
 ```
 
-This will block until the command finishes executing. You can also run a command
-in the background with `Feather.run_bg`. It will be killed if it has not
-finished executing when the parent program terminates.
+This will block until the command finishes executing. You can also run a
+command in the background with `Feather.run_in_background`. It will be killed
+if it has not finished executing when the parent program terminates.
 
 But if you want to use the process's stdout, stderr or status in OCaml, 
 `Feather.collect` will be your friend:
