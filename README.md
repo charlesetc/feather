@@ -4,7 +4,7 @@ A minimal shell library for OCaml with lightweight, posix-like syntax.
 
 For documentation and available commands, see [the generated
 documentation](https://www.charlesetc.com/feather/feather/Feather/index.html)
-or [feather.mli](./feather.mli).
+or [feather.mli](./src/feather.mli).
 
 ## Basic Introduction
 
@@ -262,6 +262,3 @@ let length =
 in
 print_int length
 ```
-
-Overall Feather makes a trade-off of being less featureful while hoping
-to improve ergonomics.
