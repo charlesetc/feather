@@ -1,4 +1,11 @@
 (executable
  (name example)
+ (modules example)
  (libraries core stdio feather)
  (preprocess (pps ppx_string ppx_expect)))
+
+(executable
+  (name async_example)
+  (modules async_example)
+  (libraries base stdio feather feather_async)
+  (preprocess (pps ppx_let ppx_expect ppx_string ppx_sexp_message)))

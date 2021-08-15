@@ -10,6 +10,9 @@ utop:
 example:
 	@dune exec ./example/example.exe
 
+async_example:
+	@dune exec ./example/async_example.exe
+
 install:
 	@dune build @install
 	@dune install

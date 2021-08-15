@@ -1,6 +1,6 @@
 (lang dune 2.7)
 (name feather)
-(version 0.2.0)
+(version 0.3.0)
 (license MIT)
 (homepage "https://github.com/charlesetc/feather")
 (source (github charlesetc/feather))
@@ -19,3 +19,14 @@
    ppx_expect
    stdio
    spawn))
+
+(package
+  (name "feather_async")
+  (synopsis "Async interface to Feather")
+  (depends
+    (ocaml (>= 4.08))
+    (feather (= 0.3.0))
+    dune
+    base
+    async))
+
