@@ -6,6 +6,7 @@ maintainer: ["charles@nrwhl.xyz"]
 authors: ["Charles Chamberlain"]
 license: "MIT"
 homepage: "https://github.com/charlesetc/feather"
+doc: "https://www.charlesetc.com/feather/feather/Feather/index.html"
 bug-reports: "https://github.com/charlesetc/feather/issues"
 depends: [
   "ocaml" {>= "4.08"}

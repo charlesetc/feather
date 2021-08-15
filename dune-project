@@ -11,6 +11,7 @@
 
 (package
   (name "feather")
+  (documentation "https://www.charlesetc.com/feather/feather/Feather/index.html")
   (synopsis "A minimal shell interface")
   (depends
    (ocaml (>= 4.08))
