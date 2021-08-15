@@ -1,13 +1,6 @@
-(executable
- (name example)
- (modules example)
- (libraries core stdio feather)
- (preprocess (pps ppx_string ppx_expect)))
-
 (library
  (name feather)
  (public_name feather)
  (inline_tests)
- (modules feather)
  (libraries base stdio threads spawn)
  (preprocess (pps  ppx_expect ppx_sexp_conv)))

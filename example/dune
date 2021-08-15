@@ -1,0 +1,4 @@
+(executable
+ (name example)
+ (libraries core stdio feather)
+ (preprocess (pps ppx_string ppx_expect)))

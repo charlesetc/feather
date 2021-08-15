@@ -8,7 +8,7 @@ utop:
 	dune utop
 
 example:
-	@dune exec ./example.exe
+	@dune exec ./example/example.exe
 
 install:
 	@dune build @install
