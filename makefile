@@ -17,4 +17,10 @@ install:
 build:
 	@dune build
 
-.PHONY: test promote utop example install build
+docs:
+	@dune build @doc
+	@rsync -a _build/default/_doc/_html/ docs/
+
+doc: docs
+
+.PHONY: test promote utop example install build doc docs

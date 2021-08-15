@@ -1,6 +1,6 @@
 open Base
 
-(* === Creating and combining Feather commands === *)
+(** {2 {b Creating and combining Feather commands } } *)
 
 type cmd
 
@@ -20,7 +20,7 @@ val or_ : cmd -> cmd -> cmd
 val sequence : cmd -> cmd -> cmd
 (** [ sequence ] is feather's version of a ";" in bash. See Infix module for more. *)
 
-(* === Running Feather commands === *)
+(** {2 {b Running Feather commands } } *)
 
 val run : ?cwd:string -> ?env:(string * string) list -> cmd -> unit
 (** Run a command without collecting anything *)
@@ -73,7 +73,7 @@ val wait : 'a background_process -> 'a
 val wait_all : unit -> unit
 (** Wait for all processes started in the background. *)
 
-(* === Commands to insert OCaml within a Feather pipeline === *)
+(** {2 {b Commands to insert OCaml within a Feather pipeline } } *)
 
 val map_lines : f:(string -> string) -> cmd
 (** [map_lines] within a sequence of pipes will be run with a thread.
@@ -89,7 +89,7 @@ val filter_map_lines : f:(string -> string option) -> cmd
 
 val filter_mapi_lines : f:(string -> int -> string option) -> cmd
 
-(* === File redirection === *)
+(** {2 {b File redirection } } *)
 
 val write_stdout_to : string -> cmd -> cmd
 
@@ -138,7 +138,7 @@ module Infix : sig
   *)
 end
 
-(* === Built-in commands === *)
+(** {2 {b Built-in commands } } *)
 
 val ls : string -> cmd
 
@@ -213,7 +213,7 @@ val tr : string -> string -> cmd
 
 val tr_d : string -> cmd
 
-(* === Misc === *)
+(** {2 {b Misc } } *)
 
 val of_list : string list -> cmd
 (** [of_list] emulates a Feather.cmd, each item in the list becomes a line on
