@@ -9,7 +9,7 @@ homepage: "https://github.com/charlesetc/feather"
 bug-reports: "https://github.com/charlesetc/feather/issues"
 depends: [
   "ocaml" {>= "4.08"}
-  "feather" {= "0.3.0"}
+  "feather" {= "version"}
   "dune" {>= "2.7"}
   "base"
   "async"

@@ -16,17 +16,17 @@
   (depends
    (ocaml (>= 4.08))
    dune
-   base
-   ppx_expect
-   stdio
-   spawn))
+   (base (>= 0.14.0))
+   (ppx_expect (>= 0.14.0))
+   (stdio (>= 0.14.0))
+   (spawn (>= 0.13.0))))
 
 (package
   (name "feather_async")
   (synopsis "Async interface to Feather")
   (depends
     (ocaml (>= 4.08))
-    (feather (= 0.3.0))
+    (feather (= version))
     dune
     base
     async))
