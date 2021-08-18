@@ -1,5 +1,3 @@
-open Base
-
 (** {2 {b Creating and combining Feather commands } } *)
 
 type cmd
