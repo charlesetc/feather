@@ -325,7 +325,15 @@ let rec eval cmd ctx =
       filter_mapi ~f ctx;
       0
 
-let process name args = Process (name, args)
+let process name args =
+  if (Sys.win32 && (not Sys.cygwin)) then
+    let name_with_exe =
+      String.chop_suffix_if_exists ~suffix:".exe"
+        (String.chop_suffix_if_exists ~suffix:".EXE" name)
+    in
+    Process (name_with_exe ^ ".exe", args)
+  else
+    Process (name, args)
 
 let ( |. ) a b = Pipe (a, b)
 
