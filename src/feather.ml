@@ -392,6 +392,13 @@ let collect_into_string fd =
      is actually less surprising than keeping the newline. *)
   String.chop_suffix_if_exists out ~suffix:"\n"
 
+(* Same thing but do it in another thread, returning an event which will contain
+ * the string *)
+let collect_into_string_async fd =
+  let chan = Event.new_channel () in
+  Thread.run (fun _ -> collect_into_string fd |> Event.send chan |> Event.sync);
+  Event.receive chan
+
 (* Launch the command and collect expected channels *)
 let collect (type a) ?cwd ?env (what_to_collect : a what_to_collect) cmd : a =
   let eval ?(stdout_writer = Unix.dup Unix.stdout)
@@ -406,42 +413,43 @@ let collect (type a) ?cwd ?env (what_to_collect : a what_to_collect) cmd : a =
       }
   in
 
+  (* Launch the command while collecting asynchronously the wanted outputs *)
   match what_to_collect with
   | Collect_status -> eval ()
   | Collect_stdout ->
       let stdout_reader, stdout_writer = Unix.pipe () in
+      let stdout_e = collect_into_string_async stdout_reader in
       let (_ : int) = eval ~stdout_writer () in
-      let stdout = collect_into_string stdout_reader in
-      stdout
+      Event.sync stdout_e
   | Collect_stderr ->
       let stderr_reader, stderr_writer = Unix.pipe () in
+      let stderr_e = collect_into_string_async stderr_reader in
       let (_ : int) = eval ~stderr_writer () in
-      let stderr = collect_into_string stderr_reader in
-      stderr
+      Event.sync stderr_e
   | Collect_stdout_status ->
       let stdout_reader, stdout_writer = Unix.pipe () in
+      let stdout_e = collect_into_string_async stdout_reader in
       let status = eval ~stdout_writer () in
-      let stdout = collect_into_string stdout_reader in
-      (stdout, status)
+      (Event.sync stdout_e, status)
   | Collect_stderr_status ->
       let stderr_reader, stderr_writer = Unix.pipe () in
+      let stderr_e = collect_into_string_async stderr_reader in
       let status = eval ~stderr_writer () in
-      let stderr = collect_into_string stderr_reader in
-      (stderr, status)
+      (Event.sync stderr_e, status)
   | Collect_stdout_stderr ->
       let stdout_reader, stdout_writer = Unix.pipe () in
       let stderr_reader, stderr_writer = Unix.pipe () in
+      let stdout_e = collect_into_string_async stdout_reader in
+      let stderr_e = collect_into_string_async stderr_reader in
       let (_ : int) = eval ~stdout_writer ~stderr_writer () in
-      let stdout = collect_into_string stdout_reader in
-      let stderr = collect_into_string stderr_reader in
-      (stdout, stderr)
+      Event.(sync stdout_e, sync stderr_e)
   | Collect_everything ->
       let stdout_reader, stdout_writer = Unix.pipe () in
       let stderr_reader, stderr_writer = Unix.pipe () in
+      let stdout_e = collect_into_string_async stdout_reader in
+      let stderr_e = collect_into_string_async stderr_reader in
       let status = eval ~stdout_writer ~stderr_writer () in
-      let stdout = collect_into_string stdout_reader in
-      let stderr = collect_into_string stderr_reader in
-      { status; stdout; stderr }
+      Event.{ status; stdout = sync stdout_e; stderr = sync stderr_e}
 
 let lines = String.split_lines
 
