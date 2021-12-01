@@ -768,6 +768,16 @@ hi
         == Stderr ==
         |}]
 
+    let%expect_test "large collection" =
+      let to_run () =
+        ignore (process "dd" [ "if=/dev/zero"; "of=/dev/stdout"; "bs=1000000"; "count=1" ]
+                |> stderr_to_stdout |> collect stdout);
+        printf "collection done!\n"
+      in Thread.run to_run; Thread.delay 2.0;
+      [%expect {|
+        collection done!
+    |}]
+
     let%expect_test "of_list" =
       of_list [ "one"; "two"; "three" ] |. sort |> print;
       [%expect {|
