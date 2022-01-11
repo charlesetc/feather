@@ -387,6 +387,7 @@ let everything = Collect_everything
 (* Take a file descriptor and read everything into a single string *)
 let collect_into_string fd =
   let out = In_channel.input_all (Unix.in_channel_of_descr fd) in
+  Unix.close fd;
   (* This might be controversial. The alternative is to export a [trim]
      command, that makes it easy to do this manually, but I think this
      is actually less surprising than keeping the newline. *)
