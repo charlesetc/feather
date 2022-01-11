@@ -397,7 +397,8 @@ let collect_into_string_sync fd =
  * the string *)
 let collect_into_string_async fd =
   let chan = Event.new_channel () in
-  Thread.run (fun _ -> collect_into_string_sync fd |> Event.send chan |> Event.sync);
+  Thread.run (fun _ ->
+      collect_into_string_sync fd |> Event.send chan |> Event.sync);
   Event.receive chan
 
 (* Launch the command and collect expected channels *)
@@ -443,14 +444,14 @@ let collect (type a) ?cwd ?env (what_to_collect : a what_to_collect) cmd : a =
       let stdout = collect_into_string_async stdout_reader in
       let stderr = collect_into_string_async stderr_reader in
       let (_ : int) = eval ~stdout_writer ~stderr_writer () in
-      Event.sync stdout, Event.sync stderr
+      (Event.sync stdout, Event.sync stderr)
   | Collect_everything ->
       let stdout_reader, stdout_writer = Unix.pipe () in
       let stderr_reader, stderr_writer = Unix.pipe () in
       let stdout = collect_into_string_async stdout_reader in
       let stderr = collect_into_string_async stderr_reader in
       let status = eval ~stdout_writer ~stderr_writer () in
-      { status; stdout = Event.sync stdout; stderr = Event.sync stderr}
+      { status; stdout = Event.sync stdout; stderr = Event.sync stderr }
 
 let lines = String.split_lines
 
@@ -605,7 +606,7 @@ let mv src dst = process "mv" [ src; dst ]
 
    N.B if this does end up getting implemented, make sure that [debug] still
    works.
- *)
+*)
 let pwd = process "pwd" []
 
 let sed ?(g = true) pattern replace =
@@ -779,10 +780,14 @@ hi
 
     let%expect_test "large collection" =
       let to_run () =
-        ignore (process "dd" [ "if=/dev/zero"; "of=/dev/stdout"; "bs=1000000"; "count=1" ]
-                |> stderr_to_stdout |> collect stdout);
+        ignore
+          (process "dd"
+             [ "if=/dev/zero"; "of=/dev/stdout"; "bs=1000000"; "count=1" ]
+          |> stderr_to_stdout |> collect stdout);
         printf "collection done!\n"
-      in Thread.run to_run; Thread.delay 2.0;
+      in
+      Thread.run to_run;
+      Thread.delay 2.0;
       [%expect {|
         collection done!
     |}]
