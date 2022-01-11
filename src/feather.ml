@@ -385,7 +385,7 @@ let stderr_and_status = Collect_stderr_status
 let everything = Collect_everything
 
 (* Take a file descriptor and read everything into a single string *)
-let collect_into_string fd =
+let collect_into_string_sync fd =
   let out = In_channel.input_all (Unix.in_channel_of_descr fd) in
   Unix.close fd;
   (* This might be controversial. The alternative is to export a [trim]
@@ -397,7 +397,7 @@ let collect_into_string fd =
  * the string *)
 let collect_into_string_async fd =
   let chan = Event.new_channel () in
-  Thread.run (fun _ -> collect_into_string fd |> Event.send chan |> Event.sync);
+  Thread.run (fun _ -> collect_into_string_sync fd |> Event.send chan |> Event.sync);
   Event.receive chan
 
 (* Launch the command and collect expected channels *)
@@ -419,38 +419,38 @@ let collect (type a) ?cwd ?env (what_to_collect : a what_to_collect) cmd : a =
   | Collect_status -> eval ()
   | Collect_stdout ->
       let stdout_reader, stdout_writer = Unix.pipe () in
-      let stdout_e = collect_into_string_async stdout_reader in
+      let stdout = collect_into_string_async stdout_reader in
       let (_ : int) = eval ~stdout_writer () in
-      Event.sync stdout_e
+      Event.sync stdout
   | Collect_stderr ->
       let stderr_reader, stderr_writer = Unix.pipe () in
-      let stderr_e = collect_into_string_async stderr_reader in
+      let stderr = collect_into_string_async stderr_reader in
       let (_ : int) = eval ~stderr_writer () in
-      Event.sync stderr_e
+      Event.sync stderr
   | Collect_stdout_status ->
       let stdout_reader, stdout_writer = Unix.pipe () in
-      let stdout_e = collect_into_string_async stdout_reader in
+      let stdout = collect_into_string_async stdout_reader in
       let status = eval ~stdout_writer () in
-      (Event.sync stdout_e, status)
+      (Event.sync stdout, status)
   | Collect_stderr_status ->
       let stderr_reader, stderr_writer = Unix.pipe () in
-      let stderr_e = collect_into_string_async stderr_reader in
+      let stderr = collect_into_string_async stderr_reader in
       let status = eval ~stderr_writer () in
-      (Event.sync stderr_e, status)
+      (Event.sync stderr, status)
   | Collect_stdout_stderr ->
       let stdout_reader, stdout_writer = Unix.pipe () in
       let stderr_reader, stderr_writer = Unix.pipe () in
-      let stdout_e = collect_into_string_async stdout_reader in
-      let stderr_e = collect_into_string_async stderr_reader in
+      let stdout = collect_into_string_async stdout_reader in
+      let stderr = collect_into_string_async stderr_reader in
       let (_ : int) = eval ~stdout_writer ~stderr_writer () in
-      Event.(sync stdout_e, sync stderr_e)
+      Event.sync stdout, Event.sync stderr
   | Collect_everything ->
       let stdout_reader, stdout_writer = Unix.pipe () in
       let stderr_reader, stderr_writer = Unix.pipe () in
-      let stdout_e = collect_into_string_async stdout_reader in
-      let stderr_e = collect_into_string_async stderr_reader in
+      let stdout = collect_into_string_async stdout_reader in
+      let stderr = collect_into_string_async stderr_reader in
       let status = eval ~stdout_writer ~stderr_writer () in
-      Event.{ status; stdout = sync stdout_e; stderr = sync stderr_e}
+      { status; stdout = Event.sync stdout; stderr = Event.sync stderr}
 
 let lines = String.split_lines
 
