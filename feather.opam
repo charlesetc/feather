@@ -31,3 +31,8 @@ build: [
     "@doc" {with-doc}
   ]
 ]
+depexts: [
+  # For pgrep
+  ["procps"] {os-family = "debian"}
+  ["procps-ng"] {os = "linux" & os-distribution = "archlinux"}
+]
