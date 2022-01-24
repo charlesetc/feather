@@ -3,4 +3,4 @@
  (public_name feather_async)
  (inline_tests)
  (libraries base async feather)
- (preprocess (pps ppx_let ppx_expect ppx_string)))
+ (preprocess (pps ppx_let ppx_expect)))

@@ -16,9 +16,12 @@
   (depends
    (ocaml (>= 4.08))
    dune
-   (base (>= 0.14.0))
-   (ppx_expect (>= 0.14.0))
-   (stdio (>= 0.14.0))
+   (base (>= 0.13.0))
+   ppx_expect
+   (ppx_string :with-test)
+   (ppx_let :with-test)
+   (ppx_sexp_message :with-test)
+   stdio
    (spawn (>= 0.13.0))))
 
 (package

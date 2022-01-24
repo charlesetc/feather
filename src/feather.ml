@@ -391,7 +391,9 @@ let collect_into_string_sync fd =
   (* This might be controversial. The alternative is to export a [trim]
      command, that makes it easy to do this manually, but I think this
      is actually less surprising than keeping the newline. *)
-  String.chop_suffix_if_exists out ~suffix:"\n"
+  match String.chop_suffix out ~suffix:"\n" with
+  | Some trimmed -> trimmed
+  | None -> out
 
 (* Same thing but do it in another thread, returning an event which will contain
  * the string *)
