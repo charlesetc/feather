@@ -127,9 +127,10 @@ type _ what_to_collect =
 let resolve_in_path prog =
   (* Do not try to resolve in the path if the program is something like
    * ./this.exe *)
-  if String.split ~on:'/' prog |> List.length <> 1 then Some prog
+  if (String.split ~on:'/' prog |> List.length <> 1) || (String.split ~on:'\\' prog |> List.length <> 1) then Some prog
   else
-    let paths = Sys.getenv "PATH" |> String.split ~on:':' in
+    let path_separator = if (Sys.win32 && (not Sys.cygwin)) then ';' else ':' in
+    let paths = Sys.getenv "PATH" |> String.split ~on:path_separator in
     List.map paths ~f:(fun d -> Caml.Filename.concat d prog)
     |> List.find ~f:Caml.Sys.file_exists
 
@@ -324,7 +325,15 @@ let rec eval cmd ctx =
       filter_mapi ~f ctx;
       0
 
-let process name args = Process (name, args)
+let process name args =
+  if (Sys.win32 && (not Sys.cygwin)) then
+    let name_with_exe =
+      String.chop_suffix_if_exists ~suffix:".exe"
+        (String.chop_suffix_if_exists ~suffix:".EXE" name)
+    in
+    Process (name_with_exe ^ ".exe", args)
+  else
+    Process (name, args)
 
 let ( |. ) a b = Pipe (a, b)
 
