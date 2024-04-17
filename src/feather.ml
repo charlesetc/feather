@@ -635,7 +635,7 @@ let terminate_child_processes () =
   process "pgrep" [ "-P"; Int.to_string State.pid ]
   |> collect stdout |> lines |> List.map ~f:Int.of_string
   |> List.iter ~f:(fun pid ->
-         try Unix.kill Sys.sigterm pid
+         try Unix.kill pid Sys.sigterm
          with Unix.Unix_error (Unix.ESRCH, _, _) ->
            (* [Unix.ERSCH] is raised when a process cannot be found, which
             * means that the child has already terminated, so it should
