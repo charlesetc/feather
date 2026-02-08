@@ -347,6 +347,8 @@ let append_stderr_to str cmd = Append_err_to (str, cmd)
 let read_stdin_from str cmd = Read_in_from (str, cmd)
 
 module Infix = struct
+  let ( |. ) = ( |. )
+
   let ( &&. ) = and_
 
   let ( ||. ) = or_

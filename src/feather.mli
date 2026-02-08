@@ -109,6 +109,9 @@ val stderr_to_stdout : cmd -> cmd
     [flip_stdout_and_stderr] should be easy to write if anyone should need it. *)
 
 module Infix : sig
+  val ( |. ) : cmd -> cmd -> cmd
+  (** Same as the top-level [ |. ] pipe operator *)
+
   val ( > ) : cmd -> string -> cmd
   (** Redirect Stdout *)
 
