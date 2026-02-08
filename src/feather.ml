@@ -746,7 +746,6 @@ hi
       find "." ~ignore_hidden:true ~kind:`Files ~name:"*.ml"
       |. rg_v {|\.pp\.|} |. sort |> print;
       [%expect {|
-        ./example.ml
         ./feather.ml |}]
 
     let%expect_test "waitpid should retry on EINTR" =
