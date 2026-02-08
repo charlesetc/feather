@@ -364,6 +364,8 @@ module Infix = struct
   let ( >>! ) cmd str = append_stderr_to str cmd
 
   let ( < ) cmd str = read_stdin_from str cmd
+
+  let ( <<< ) cmd s = Of_list [ s ] |. cmd
 end
 
 let stdout_to_stderr cmd = Out_to_err cmd
@@ -801,4 +803,8 @@ hi
         one
         three
         two |}]
+
+    let%expect_test "here-string" =
+      process "cat" [] <<< "hello" |> print;
+      [%expect {| hello |}]
   end)

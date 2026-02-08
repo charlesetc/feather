@@ -137,6 +137,10 @@ module Infix : sig
       [->.] binds more tightly than [|.] so parentheses should be used when
       chaining the two.
   *)
+
+  val ( <<< ) : cmd -> string -> cmd
+  (** Here-string: feed a string directly to a command's stdin without
+      spawning a subprocess. Analogous to bash's [<<<]. *)
 end
 
 (** {2 {b Built-in commands } } *)
