@@ -27,8 +27,8 @@ additional flag `--display=short` for additional incremental output.
 ## Packages Availability
 
 There are some restrictions. For example, `feather_tests` cannot be built with
-the `v0.13` environment. To restrict the set of packages, supply the additional
-`--only-packages`, for example:
+some older core dependencies. To restrict the set of packages, supply the
+additional `--only-packages`, for example:
 
 ```bash
 $ dune build --workspace=dune-workspace-v0.13 \

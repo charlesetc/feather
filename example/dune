@@ -2,7 +2,7 @@
  (public_name example)
  (package feather_tests)
  (modules example)
- (libraries core feather stdio)
+ (libraries core core_unix.time_float_unix feather stdio)
  (preprocess
   (pps ppx_expect ppx_string)))
 

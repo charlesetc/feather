@@ -10,8 +10,8 @@ bug-reports: "https://github.com/charlesetc/feather/issues"
 depends: [
   "dune" {>= "2.7"}
   "base"
-  "core"
-  "core_unix"
+  "core" {>= "v0.16"}
+  "core_unix" {>= "v0.16"}
   "feather" {= version}
   "feather_async" {= version}
   "ppx_expect"

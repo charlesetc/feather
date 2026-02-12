@@ -51,8 +51,10 @@
  (synopsis "Extended tests and dev package for feather")
  (depends
   base
-  core
-  core_unix
+  (core
+   (>= v0.16))
+  (core_unix
+   (>= v0.16))
   (feather
    (= :version))
   (feather_async
