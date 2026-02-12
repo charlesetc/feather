@@ -1,3 +1,7 @@
+(* We bind [Mutex] in a way that satisfies all supported OCaml and Base versions:
+   It must be bound to either [threads.Mutex] or [Stdlib.Mutex]. *)
+module Caml_mutex = Mutex
+
 open Base
 open Stdio
 module Sys = Stdlib.Sys
@@ -34,11 +38,11 @@ module Thread = struct
 end
 
 module Mutex = struct
-  include Mutex
+  include Caml_mutex
 
   let with_lock m f =
-    Mutex.lock m;
-    Exn.protect ~f ~finally:(fun () -> Mutex.unlock m)
+    Caml_mutex.lock m;
+    Exn.protect ~f ~finally:(fun () -> Caml_mutex.unlock m)
 end
 
 module Background_process = struct
