@@ -27,7 +27,6 @@
  (depends
   (ocaml
    (>= 4.08))
-  dune
   (base
    (>= 0.13.0))
   ppx_expect
@@ -43,7 +42,6 @@
    (>= 4.08))
   (feather
    (= :version))
-  dune
   base
   async))
 
