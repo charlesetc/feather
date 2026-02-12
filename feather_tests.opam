@@ -11,6 +11,10 @@ depends: [
   "dune" {>= "2.7"}
   "feather" {= version}
   "feather_async" {= version}
+  "ppx_expect"
+  "ppx_let"
+  "ppx_sexp_message"
+  "ppx_string"
   "odoc" {with-doc}
 ]
 build: [
