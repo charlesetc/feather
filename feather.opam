@@ -9,8 +9,8 @@ homepage: "https://github.com/charlesetc/feather"
 doc: "https://www.charlesetc.com/feather/feather/Feather/index.html"
 bug-reports: "https://github.com/charlesetc/feather/issues"
 depends: [
-  "ocaml" {>= "4.08"}
   "dune" {>= "2.7"}
+  "ocaml" {>= "4.08"}
   "base" {>= "0.13.0"}
   "ppx_expect"
   "stdio"
