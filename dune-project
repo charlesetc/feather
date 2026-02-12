@@ -28,12 +28,12 @@
   (ocaml
    (>= 4.08))
   (base
-   (>= 0.13.0))
+   (>= v0.13.0))
   ppx_expect
   ppx_sexp_conv
   stdio
   (spawn
-   (>= 0.13.0))))
+   (>= v0.13.0))))
 
 (package
  (name "feather_async")
