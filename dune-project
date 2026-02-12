@@ -30,6 +30,7 @@
   (base
    (>= 0.13.0))
   ppx_expect
+  ppx_sexp_conv
   stdio
   (spawn
    (>= 0.13.0))))
@@ -49,6 +50,8 @@
  (name "feather_tests")
  (synopsis "Extended tests and dev package for feather")
  (depends
+  base
+  core
   (feather
    (= :version))
   (feather_async
@@ -56,4 +59,5 @@
   ppx_expect
   ppx_let
   ppx_sexp_message
-  ppx_string))
+  ppx_string
+  stdio))
