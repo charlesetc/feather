@@ -49,3 +49,12 @@
   dune
   base
   async))
+
+(package
+ (name "feather_tests")
+ (synopsis "Extended tests and dev package for feather")
+ (depends
+  (feather
+   (= :version))
+  (feather_async
+   (= :version))))

@@ -1,12 +1,14 @@
 (executable
- (name example)
+ (public_name example)
+ (package feather_tests)
  (modules example)
  (libraries core feather stdio)
  (preprocess
   (pps ppx_expect ppx_string)))
 
 (executable
- (name async_example)
+ (public_name async_example)
+ (package feather_tests)
  (modules async_example)
  (libraries base feather feather_async stdio)
  (preprocess
