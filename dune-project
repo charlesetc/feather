@@ -31,9 +31,6 @@
   (base
    (>= 0.13.0))
   ppx_expect
-  (ppx_string :with-test)
-  (ppx_let :with-test)
-  (ppx_sexp_message :with-test)
   stdio
   (spawn
    (>= 0.13.0))))
@@ -57,4 +54,8 @@
   (feather
    (= :version))
   (feather_async
-   (= :version))))
+   (= :version))
+  ppx_expect
+  ppx_let
+  ppx_sexp_message
+  ppx_string))
