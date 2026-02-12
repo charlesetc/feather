@@ -9,12 +9,15 @@ homepage: "https://github.com/charlesetc/feather"
 bug-reports: "https://github.com/charlesetc/feather/issues"
 depends: [
   "dune" {>= "2.7"}
+  "base"
+  "core"
   "feather" {= version}
   "feather_async" {= version}
   "ppx_expect"
   "ppx_let"
   "ppx_sexp_message"
   "ppx_string"
+  "stdio"
   "odoc" {with-doc}
 ]
 build: [
