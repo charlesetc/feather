@@ -10,6 +10,6 @@
  (public_name async_example)
  (package feather_tests)
  (modules async_example)
- (libraries base feather feather_async stdio)
+ (libraries base core_unix.command_unix feather feather_async stdio)
  (preprocess
   (pps ppx_expect ppx_let ppx_sexp_message ppx_string)))

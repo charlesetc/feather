@@ -52,6 +52,7 @@
  (depends
   base
   core
+  core_unix
   (feather
    (= :version))
   (feather_async

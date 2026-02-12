@@ -11,6 +11,7 @@ depends: [
   "dune" {>= "2.7"}
   "base"
   "core"
+  "core_unix"
   "feather" {= version}
   "feather_async" {= version}
   "ppx_expect"
