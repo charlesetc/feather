@@ -45,7 +45,7 @@
   (ocaml
    (>= 4.08))
   (feather
-   (= version))
+   (= :version))
   dune
   base
   async))
