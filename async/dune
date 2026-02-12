@@ -1,7 +1,5 @@
 (library
  (name feather_async)
  (public_name feather_async)
- (inline_tests)
  (libraries async base feather)
- (preprocess
-  (pps ppx_expect ppx_let)))
+ (preprocess no_preprocessing))
