@@ -1,6 +1,6 @@
 open Base
 open Stdio
-module Sys = Caml.Sys
+module Sys = Stdlib.Sys
 
 module Unix = struct
   include Unix
@@ -130,8 +130,8 @@ let resolve_in_path prog =
   if String.split ~on:'/' prog |> List.length <> 1 then Some prog
   else
     let paths = Sys.getenv "PATH" |> String.split ~on:':' in
-    List.map paths ~f:(fun d -> Caml.Filename.concat d prog)
-    |> List.find ~f:Caml.Sys.file_exists
+    List.map paths ~f:(fun d -> Stdlib.Filename.concat d prog)
+    |> List.find ~f:Stdlib.Sys.file_exists
 
 let resolve_in_path_exn prog =
   match resolve_in_path prog with
@@ -475,7 +475,7 @@ let mapi_lines ~f = filter_mapi_lines ~f:(fun a i -> Some (f a i))
 let map_lines ~f = mapi_lines ~f:(fun a _ -> f a)
 
 let run' ?cwd ?env cmd =
-  Caml.flush_all ();
+  Stdlib.flush_all ();
   eval cmd
     {
       stdin_reader = Unix.dup Unix.stdin;
@@ -646,7 +646,7 @@ let terminate_child_processes () =
             * be safe to ignore this exception. *)
            ())
 
-let () = Caml.at_exit terminate_child_processes
+let () = Stdlib.at_exit terminate_child_processes
 
 (* === Tests === *)
 
@@ -752,7 +752,7 @@ hi
 
     let%expect_test "waitpid should retry on EINTR" =
       process "kill"
-        (List.map ~f:Int.to_string [ Caml.Sys.sigurg; Unix.getpid () ])
+        (List.map ~f:Int.to_string [ Stdlib.Sys.sigurg; Unix.getpid () ])
       |> print;
       [%expect ""]
 
