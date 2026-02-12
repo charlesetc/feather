@@ -2,6 +2,6 @@
  (name feather)
  (public_name feather)
  (inline_tests)
- (libraries base stdio threads spawn)
+ (libraries base spawn stdio threads)
  (preprocess
   (pps ppx_expect ppx_sexp_conv)))
