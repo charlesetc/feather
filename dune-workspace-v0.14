@@ -1,0 +1,9 @@
+(lang dune 3.21)
+
+(pkg enabled)
+
+(lock_dir
+ (repositories overlay upstream)
+ (constraints
+  (base
+   (= v0.14.3))))

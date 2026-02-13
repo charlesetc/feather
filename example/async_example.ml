@@ -14,6 +14,6 @@ let main () : unit Deferred.t =
   | None -> echo "got nothing" |> run
 
 let () =
-  Command.run
+  Command_unix.run
   @@ Command.async ~summary:"example feather async command"
        (Command.Param.return (fun () -> main ()))
