@@ -29,6 +29,7 @@ let __ () =
 
 let __ () =
   let open Core in
+  let module Time = Time_float_unix in
   echo "count hour" |> run;
   echo "----- ----" |> run;
   process "ls" [ "-lah" ]
