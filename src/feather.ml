@@ -1,7 +1,6 @@
 (* We bind [Mutex] in a way that satisfies all supported OCaml and Base versions:
    It must be bound to either [threads.Mutex] or [Stdlib.Mutex]. *)
 module Caml_mutex = Mutex
-
 open Base
 open Stdio
 module Sys = Stdlib.Sys
@@ -16,7 +15,6 @@ module Unix = struct
     if restart then try_until_no_eintr f else f ()
 
   let dup = dup ~cloexec:true
-
   let pipe = pipe ~cloexec:true
 
   let read ?restart fd buf pos len =
@@ -64,16 +62,13 @@ type 'a background_process = 'a Background_process.t
 
 module State : sig
   val pid : int
-
   val new_background_process : unit -> 'a Background_process.t
-
   val all_background_processes : unit -> Background_process.packed list
 end = struct
   let pid = Unix.getpid ()
 
   (* Not sure if this mutex is helpful but better safe than sorry?  *)
   let background_process_mutex = Mutex.create ()
-
   let background_processes : Background_process.packed list ref = ref []
 
   let new_background_process () =
@@ -197,10 +192,10 @@ let exec prog args ctx =
         |> Spawn.Env.of_list)
   in
   (if !debug then
-   let tm = Unix.localtime (Unix.time ()) in
-   eprintf "%d-%d-%d %d:%d:%d - %s %s\n" tm.tm_year tm.tm_mon tm.tm_mday
-     tm.tm_hour tm.tm_min tm.tm_sec prog
-     ("(" ^ String.concat ~sep:" " args ^ ")"));
+     let tm = Unix.localtime (Unix.time ()) in
+     eprintf "%d-%d-%d %d:%d:%d - %s %s\n" tm.tm_year tm.tm_mon tm.tm_mday
+       tm.tm_hour tm.tm_min tm.tm_sec prog
+       ("(" ^ String.concat ~sep:" " args ^ ")"));
   let pid =
     Spawn.spawn ~cwd ?env ~stdin:ctx.stdin_reader ~stdout:ctx.stdout_writer
       ~stderr:ctx.stderr_writer ~prog ~argv ()
@@ -329,67 +324,43 @@ let rec eval cmd ctx =
       0
 
 let process name args = Process (name, args)
-
 let ( |. ) a b = Pipe (a, b)
-
 let and_ a b = And (a, b)
-
 let or_ a b = Or (a, b)
-
 let sequence a b = Sequence (a, b)
 
 (* Redirection *)
 
 let write_stdout_to str cmd = Write_out_to (str, cmd)
-
 let append_stdout_to str cmd = Append_out_to (str, cmd)
-
 let write_stderr_to str cmd = Write_err_to (str, cmd)
-
 let append_stderr_to str cmd = Append_err_to (str, cmd)
-
 let read_stdin_from str cmd = Read_in_from (str, cmd)
 
 module Infix = struct
   let ( |. ) = ( |. )
-
   let ( &&. ) = and_
-
   let ( ||. ) = or_
-
   let ( ->. ) = sequence
-
   let ( > ) cmd str = write_stdout_to str cmd
-
   let ( >> ) cmd str = append_stdout_to str cmd
-
   let ( >! ) cmd str = write_stderr_to str cmd
-
   let ( >>! ) cmd str = append_stderr_to str cmd
-
   let ( < ) cmd str = read_stdin_from str cmd
-
   let ( <<< ) cmd s = Of_list [ s ] |. cmd
 end
 
 let stdout_to_stderr cmd = Out_to_err cmd
-
 let stderr_to_stdout cmd = Err_to_out cmd
 
 (* === Collection facilities === *)
 
 let status = Collect_status
-
 let stdout = Collect_stdout
-
 let stderr = Collect_stderr
-
 let stdout_and_stderr = Collect_stdout_stderr
-
 let stdout_and_status = Collect_stdout_status
-
 let stderr_and_status = Collect_stderr_status
-
 let everything = Collect_everything
 
 (* Take a file descriptor and read everything into a single string *)
@@ -464,18 +435,14 @@ let collect (type a) ?cwd ?env (what_to_collect : a what_to_collect) cmd : a =
       { status; stdout = Event.sync stdout; stderr = Event.sync stderr }
 
 let lines = String.split_lines
-
 let filter_mapi_lines ~f = Filter_mapi f
-
 let filter_map_lines ~f = filter_mapi_lines ~f:(fun a _ -> f a)
 
 let filteri_lines ~f =
   filter_mapi_lines ~f:(fun a i -> if f a i then Some a else None)
 
 let filter_lines ~f = filteri_lines ~f:(fun a _ -> f a)
-
 let mapi_lines ~f = filter_mapi_lines ~f:(fun a i -> Some (f a i))
-
 let map_lines ~f = mapi_lines ~f:(fun a _ -> f a)
 
 let run' ?cwd ?env cmd =
@@ -518,8 +485,8 @@ let wait (process : 'a Background_process.t) =
 let wait_all () =
   State.all_background_processes ()
   |> List.iter ~f:(function Background_process.T process ->
-         let _ = wait process in
-         ())
+      let _ = wait process in
+      ())
 
 let run ?cwd ?env cmd =
   let (_status : int) = run' ?cwd ?env cmd in
@@ -544,33 +511,25 @@ let find ?(include_starting_dir = false) ?(ignore_hidden = false)
          Option.map name ~f:(fun name -> [ "-name"; name ]);
          (if ignore_hidden then Some [ "-not"; "-path"; "*/\\.*" ] else None);
          (if include_starting_dir then None
-         else Some [ "-not"; "-path"; directory ]);
+          else Some [ "-not"; "-path"; directory ]);
        ]
       |> List.filter_opt |> List.concat)
   in
   process "find" args
 
 let sh s = process "sh" [ "-c"; s ]
-
 let rg ?in_ regex = process "rg" (List.filter_opt [ Some regex; in_ ])
 
 let rg_v ?in_ regex =
   process "rg" ([ "-v" ] @ List.filter_opt [ Some regex; in_ ])
 
 let grep ?in_ regex = process "grep" (List.filter_opt [ Some regex; in_ ])
-
 let cat file = process "cat" [ file ]
-
 let less = process "less" []
-
 let mkdir dir = process "mkdir" [ dir ]
-
 let mkdir_p dir = process "mkdir" [ "-p"; dir ]
-
 let sort = process "sort" []
-
 let uniq = process "uniq" []
-
 let shuf = process "shuf" []
 
 let head ?file n =
@@ -580,7 +539,6 @@ let tail ?file n =
   process "tail" (List.filter_opt [ Some "-n"; Some (Int.to_string n); file ])
 
 let tail_f file = process "tail" [ "-f"; file ]
-
 let echo s = process "echo" [ s ]
 
 let cut' ?complement ?(d = ' ') fs =
@@ -595,11 +553,8 @@ let cut' ?complement ?(d = ' ') fs =
     @ List.filter_opt [ Option.map complement ~f:(fun () -> "--complement") ])
 
 let cut ?d f = cut' ?d [ f ]
-
 let cp src dst = process "cp" [ src; dst ]
-
 let cp_r src dst = process "cp" [ "-r"; src; dst ]
-
 let mv src dst = process "mv" [ src; dst ]
 
 (* TODO: Refactor to not spawn a process. Potentially applicable to:
@@ -623,13 +578,11 @@ let sed ?(g = true) pattern replace =
   process "sed" [ ("s/" ^ pattern ^ "/" ^ replace ^ if g then "/g" else "/") ]
 
 let tr from_ to_ = process "tr" [ from_; to_ ]
-
 let tr_d chars = process "tr" [ "-d"; chars ]
 
 (* === Misc === *)
 
 let of_list l = Of_list l
-
 let devnull = "/dev/null"
 
 let fzf ?cwd ?env cmd =
@@ -643,12 +596,12 @@ let terminate_child_processes () =
   process "pgrep" [ "-P"; Int.to_string State.pid ]
   |> collect stdout |> lines |> List.map ~f:Int.of_string
   |> List.iter ~f:(fun pid ->
-         try Unix.kill pid Sys.sigterm
-         with Unix.Unix_error (Unix.ESRCH, _, _) ->
-           (* [Unix.ERSCH] is raised when a process cannot be found, which
-            * means that the child has already terminated, so it should
-            * be safe to ignore this exception. *)
-           ())
+      try Unix.kill pid Sys.sigterm
+      with Unix.Unix_error (Unix.ESRCH, _, _) ->
+        (* [Unix.ERSCH] is raised when a process cannot be found, which
+         * means that the child has already terminated, so it should
+         * be safe to ignore this exception. *)
+        ())
 
 let () = Stdlib.at_exit terminate_child_processes
 
@@ -700,9 +653,9 @@ hi
         you,3 |}];
       echo text
       |. map_lines ~f:(fun line ->
-             String.split line ~on:' '
-             |> List.filter ~f:(fun x -> String.length x = 1)
-             |> List.rev |> String.concat ~sep:"--")
+          String.split line ~on:' '
+          |> List.filter ~f:(fun x -> String.length x = 1)
+          |> List.rev |> String.concat ~sep:"--")
       |> print;
       [%expect {|
         a--0
