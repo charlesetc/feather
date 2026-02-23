@@ -32,19 +32,15 @@ let __ () =
   let module Time = Time_float_unix in
   echo "count hour" |> run;
   echo "----- ----" |> run;
-  process "ls" [ "-lah" ]
-  |. sed "  *" " "
-  |. cut' [ 8 ]
+  process "ls" [ "-lah" ] |. sed "  *" " " |. cut' [ 8 ]
   |. filter_lines ~f:(fun line -> String.( <> ) line "")
   |. map_lines ~f:(fun line ->
-         Time.Ofday.of_string line |> Time.Ofday.to_span_since_start_of_day
-         |> Time.Span.to_hr |> Float.to_int
-         |> function
-         | n when n > 12 -> Int.to_string (n - 12) ^ " PM"
-         | n -> Int.to_string n ^ " AM")
-  |. process "sort" [ "-n" ]
-  |. process "uniq" [ "-c" ]
-  |> run
+      Time.Ofday.of_string line |> Time.Ofday.to_span_since_start_of_day
+      |> Time.Span.to_hr |> Float.to_int
+      |> function
+      | n when n > 12 -> Int.to_string (n - 12) ^ " PM"
+      | n -> Int.to_string n ^ " AM")
+  |. process "sort" [ "-n" ] |. process "uniq" [ "-c" ] |> run
 
 let __ () =
   let stderr, status =
