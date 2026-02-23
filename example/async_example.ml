@@ -12,8 +12,11 @@ let main () : unit Deferred.t =
   match%bind ls "/tmp" < devnull |> fzf with
   | Some s -> echo [%string "hi there: %{s}"] |> run
   | None -> echo "got nothing" |> run
+;;
 
 let () =
   Command_unix.run
-  @@ Command.async ~summary:"example feather async command"
+  @@ Command.async
+       ~summary:"example feather async command"
        (Command.Param.return (fun () -> main ()))
+;;
