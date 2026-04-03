@@ -708,9 +708,7 @@ hi
         ./feather.ml |}]
 
     let%expect_test "waitpid should retry on EINTR" =
-      process "kill"
-        (List.map ~f:Int.to_string [ Stdlib.Sys.sigurg; Unix.getpid () ])
-      |> print;
+      process "kill" [ "-URG"; Int.to_string (Unix.getpid ()) ] |> print;
       [%expect ""]
 
     let%expect_test "redirection/collection" =
