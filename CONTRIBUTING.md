@@ -6,7 +6,7 @@ To check the build with different versions of dependencies we use local dev
 dune-workspace files in conjunction with
 [dune package management](https://dune.readthedocs.io/en/stable/tutorials/dune-package-management/index.html).
 
-The following environments are checked with dune-workspace-%{ENV} for ENV in:
+The following environments are checked with dune-workspace.%{ENV} for ENV in:
 
 - 5.4
 - 5.3
@@ -18,7 +18,7 @@ The following environments are checked with dune-workspace-%{ENV} for ENV in:
 For example, to check the build with the `5.3` env, run:
 
 ```bash
-$ dune build --workspace=dune-workspace-5.3
+$ dune build --workspace=dune-workspace.5.3
 ```
 
 If you don't have a default dune display setting you may want to provide the
@@ -31,7 +31,7 @@ some older core dependencies. To restrict the set of packages, supply the
 additional `--only-packages`, for example:
 
 ```bash
-$ dune build --workspace=dune-workspace-v0.13 \
+$ dune build --workspace=dune-workspace.v0.13 \
     --only-packages="feather,feather_async" \
     --display=short
 ```
